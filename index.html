@@ -1,0 +1,1865 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0}</style>
+<title>Chemistry Workbench</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: one fixed screen, no page scrolling. Tabs on top, running document always visible, one tool below it. Long lists are paged with Previous/Next. */
+:root{
+  --bg:#EEF2F5; --surface:#FFFFFF; --surface-2:#E3EAF0;
+  --ink:#10202D; --muted:#46586A; --line:#B9C6D1; --line-strong:#6C8093;
+  --accent:#0A5CA8; --on-accent:#FFFFFF;
+  --sel:#F2B705; --focus:#C2410C; --dwell:rgba(242,183,5,.6);
+  --cs:58%; --cl:86%;
+  --font:'Andika','Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E151C; --surface:#17222C; --surface-2:#223140;
+    --ink:#EAF1F7; --muted:#A5B5C4; --line:#33444F; --line-strong:#7E93A5;
+    --accent:#7CBCF2; --on-accent:#06121C; --focus:#FFB07A; --cs:38%; --cl:24%; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E151C; --surface:#17222C; --surface-2:#223140;
+  --ink:#EAF1F7; --muted:#A5B5C4; --line:#33444F; --line-strong:#7E93A5;
+  --accent:#7CBCF2; --on-accent:#06121C; --focus:#FFB07A; --cs:38%; --cl:24%; color-scheme:dark;
+}
+:root[data-theme="hc"]{
+  --bg:#000; --surface:#000; --surface-2:#262626; --ink:#fff; --muted:#e6e6e6; --line:#fff; --line-strong:#fff;
+  --accent:#FFD400; --on-accent:#000; --sel:#00E5FF; --focus:#00E5FF; --dwell:rgba(0,229,255,.6); --cs:0%; --cl:14%; color-scheme:dark;
+}
+html,body{height:100%;overflow:hidden}
+.sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.tsp body,.tsp button,.tsp textarea{letter-spacing:.12em;word-spacing:.16em;line-height:1.5}
+button,textarea{letter-spacing:inherit;word-spacing:inherit}
+html{font-size:16px;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--ink);font-family:var(--font);font-size:1rem;line-height:1.35;
+  padding-block:.5rem;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+h1,h2{margin:0}
+button{font:inherit;color:inherit}
+textarea{-webkit-user-select:text;user-select:text}
+:focus-visible{outline:4px solid var(--focus);outline-offset:2px}
+.app{height:100%;max-width:84rem;margin:0 auto;display:flex;flex-direction:column;gap:.5rem}
+
+/* targets */
+.btn{
+  position:relative;min-height:3.2rem;min-width:3rem;padding:.35rem .8rem;
+  font-weight:700;font-size:1.05rem;line-height:1.15;text-align:center;
+  background:var(--surface);color:var(--ink);border:2px solid var(--line-strong);border-radius:.6rem;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn:hover{border-color:var(--accent);background-color:var(--surface-2)}
+.btn[aria-pressed="true"],.btn[aria-selected="true"]{background-color:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.primary{background-color:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.warn{border-color:var(--focus)}
+.btn:disabled{opacity:.45}
+.btn[aria-pressed="true"],.btn[aria-selected="true"]{box-shadow:inset 0 -6px 0 var(--sel)}
+.dwelling{background-image:linear-gradient(var(--dwell),var(--dwell));background-repeat:no-repeat;background-size:0 100%;animation:dwellbar var(--dwell-ms,1000ms) linear forwards}
+@keyframes dwellbar{to{background-size:100% 100%}}
+.cellhit.dwelling{background-image:none;animation:rectfill var(--dwell-ms,1000ms) linear forwards}
+@keyframes rectfill{from{fill-opacity:0}to{fill-opacity:.55}}
+
+.card{background:var(--surface);border:2px solid var(--line);border-radius:.8rem;padding:.7rem;display:flex;flex-direction:column;gap:.6rem;min-width:0;min-height:0}
+.lbl{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.note{color:var(--muted);margin:0;font-size:.95rem}
+.grow{flex:1 1 0;min-width:0}
+
+/* top */
+.topbar{display:flex;gap:.5rem;align-items:stretch}
+.tabs .btn{padding-inline:.25rem;font-size:.95rem;overflow-wrap:anywhere}
+.tabs{flex:1;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:.5rem}
+#settings{position:fixed;z-index:60;top:calc(.5rem + env(safe-area-inset-top,0px));bottom:.5rem;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));
+  overflow-y:auto;background:var(--surface);border:2px solid var(--line-strong);border-radius:.9rem;padding:1.2rem 1.5rem;display:flex;flex-direction:column;gap:1.1rem;font-size:1.15rem}
+#settings>*{flex-shrink:0}
+#settings .card>.lbl{font-size:1.1rem;color:var(--ink)}
+#settings h2{font-size:1.7rem}
+#settings .sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(24rem,1fr));gap:1.3rem 2rem}
+#settings .sgroup{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+#settings .sgroup .lbl{flex-basis:100%;font-size:1.05rem;color:var(--ink);letter-spacing:.04em}
+#settings .btn{min-height:3.8rem;font-size:1.2rem;padding-inline:1.2rem}
+#settings .note{font-size:1.05rem;max-width:none}
+#settings .card{background:var(--bg)}
+.sgroup{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+
+/* document strip */
+.docstrip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.5rem}
+.doc{background:var(--surface);border:2px solid var(--line-strong);border-radius:.7rem;padding:.4rem .7rem;height:6.6rem;overflow-y:auto;
+  display:flex;flex-wrap:wrap;align-content:flex-start;align-items:center;gap:.1rem .55rem;font-size:1.5rem}
+.doc.big{height:100%;font-size:2rem;padding:.8rem 1rem;gap:.4rem .7rem}
+.doc .ph{font-size:1.1rem;color:var(--muted)}
+.doc sub,.doc sup,.tok sub,.tok sup,.fdisplay sub,.fdisplay sup,.nm-out sub,.ion .f sub,.ion .f sup{font-size:.58em}
+.di{display:inline-flex;align-items:center;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;border-radius:.4rem;border:2px solid transparent;background:none;padding:.05rem .2rem;font:inherit;color:inherit}
+.di.tight{margin-left:-.5rem}
+.di img{height:4.2rem;width:auto;background:#fff;border-radius:.3rem;display:block}
+.doc.big .di img{height:7rem}
+button.di{cursor:pointer;min-height:2.6rem}
+button.di:hover{border-color:var(--accent)}
+button.di[aria-pressed="true"]{border-color:var(--sel);background:rgba(242,183,5,.3)}
+.nl{flex-basis:100%;height:0}
+.brkmark{color:var(--muted);font-size:1rem}
+.docbtns{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+.docbtns .btn{min-height:2.9rem;padding:.2rem .6rem;font-size:.98rem}
+
+/* stage */
+.stage{flex:1;min-height:0;position:relative}
+.tool{height:100%;min-height:0;overflow-y:auto;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:.5rem}
+.col{display:flex;flex-direction:column;gap:.5rem;min-height:0;min-width:0}
+@media (max-width:899px){
+  .tool{grid-template-columns:minmax(0,1fr);overflow-y:auto;align-content:start}
+  .tabs{grid-auto-flow:row;grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr))}
+  .tabs .btn{font-size:.9rem;padding:.2rem}
+}
+
+/* formula + name displays */
+.fdisplay,.nm-out{background:var(--bg);border:2px dashed var(--line-strong);border-radius:.6rem;display:flex;align-items:center;padding:.2rem .8rem;overflow-x:auto;min-height:4.4rem;white-space:nowrap}
+.fdisplay{font-size:2.9rem;line-height:1.15}
+.nm-out{font-size:2rem;white-space:normal;overflow-wrap:anywhere}
+.fdisplay .ph,.nm-out .ph{font-size:1.1rem;color:var(--muted)}
+.tok{font-size:1.5rem;min-width:3.4rem;min-height:3rem}
+.plain{margin:0;font-size:1.05rem}
+.grid{display:grid;gap:.4rem}
+.g6{grid-template-columns:repeat(6,1fr)} .g5{grid-template-columns:repeat(5,1fr)} .g7{grid-template-columns:repeat(7,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+.grid .btn{min-width:0;padding-inline:.2rem}
+
+/* picker */
+.picker{display:flex;flex-direction:column;gap:.45rem;height:100%;min-height:0}
+.chips{display:grid;grid-template-columns:repeat(6,1fr);gap:.35rem}
+.chips .btn{min-height:2.7rem;font-size:.85rem;padding:.1rem .2rem}
+.pgrid{flex:1;min-height:0;display:grid;gap:.4rem;grid-auto-rows:minmax(3.6rem,1fr)}
+.ptile{display:grid;gap:.05rem;align-content:center;justify-items:center;padding:.2rem;min-width:0;background-color:hsl(var(--h,210) var(--cs) var(--cl))}
+.ptile b{font-size:1.9rem;line-height:1}
+.ptile small{font-size:.8rem;font-weight:400;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ptile.ion .f{font-size:1.5rem;line-height:1.1;font-weight:700}
+.ptile.ion small{font-size:.82rem}
+.pager2{display:grid;grid-template-columns:1fr auto 1fr;gap:.5rem;align-items:center}
+.pager2 span{font-weight:700;color:var(--muted);padding-inline:.4rem}
+
+/* periodic table */
+.fulltable{flex:1;min-height:0;display:grid;gap:.2rem;grid-template-columns:repeat(18,minmax(0,1fr));grid-template-rows:repeat(7,minmax(0,1fr)) .3fr repeat(2,minmax(0,1fr))}
+.cell{display:grid;grid-template-rows:auto 1fr;justify-items:center;align-items:center;padding:.1rem 0 .2rem;min-width:0;min-height:0;
+  background-color:hsl(var(--h) var(--cs) var(--cl));border:2px solid var(--line-strong);border-radius:.4rem;cursor:pointer;color:var(--ink);overflow:hidden}
+.cell:hover{border-color:var(--ink)}
+.cell[aria-pressed="true"]{outline:4px solid var(--sel);outline-offset:0;z-index:1}
+.cell .zn{font-size:.62rem;justify-self:start;padding-left:.2rem;line-height:1}
+.cell .sy{font-size:1.35rem;font-weight:700;line-height:1}
+.ghost{display:grid;place-items:center;font-size:.6rem;color:var(--muted);border:2px dashed var(--line-strong);border-radius:.4rem;text-align:center}
+.detail{grid-row:1/4;grid-column:3/13;display:flex;gap:.8rem;padding:.5rem .7rem;border:2px solid var(--line);border-radius:.6rem;background:var(--surface);min-height:0;overflow:hidden}
+.detail .big{font-size:3.4rem;font-weight:700;line-height:1}
+.detail dl{display:grid;grid-template-columns:max-content max-content max-content 1fr;gap:.1rem .8rem;align-content:center;margin:0;font-size:.95rem}
+.detail dt{color:var(--muted)} .detail dd{margin:0;font-weight:700}
+.detail .acts{display:flex;flex-direction:column;gap:.4rem;margin-left:auto;justify-content:center}
+.detail .acts .btn{min-height:2.6rem;font-size:.9rem}
+.detailcard{display:flex;gap:.8rem;flex-wrap:wrap;align-items:flex-start}
+.detailcard .big{font-size:4rem;font-weight:700;line-height:1}
+.detailcard dl{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0;font-size:1.05rem}
+.detailcard dt{color:var(--muted)} .detailcard dd{margin:0;font-weight:700}
+
+/* passcode and text floor */
+.lockbox{position:fixed;inset:0;z-index:80;background:var(--bg);display:grid;place-items:center;padding:1rem}
+.bigtext .lbl,.bigtext .note,.bigtext .tabs .btn,.bigtext .docbtns .btn,.bigtext .chips .btn,.bigtext .ptile small,.bigtext .key.small,.bigtext .cell .nm,.bigtext .detail dl,.bigtext .detail .acts .btn,.bigtext .ptile.ion small,.bigtext .ghost{font-size:1rem}
+.bigtext .cell .zn{display:none}
+.bigtext .tabs{grid-auto-flow:row;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr))}
+.bigtext .tabs .btn{overflow-wrap:normal;word-break:normal}
+.bigtext .ghost{color:transparent;font-size:.1rem}
+/* atoms and data */
+.eq{display:inline-flex;align-items:center;gap:.45em}
+.iso{display:inline-flex;align-items:center;gap:.06em}
+.isonum{display:inline-flex;flex-direction:column;align-items:flex-end;font-size:.55em;line-height:1.05}
+.amode{display:flex;flex-direction:column;gap:.5rem;min-height:0;flex:1}
+.lwgrid{display:grid;grid-template-columns:7rem 9rem 7rem;grid-template-rows:5rem 7rem 5rem;gap:.4rem;justify-content:center;align-items:stretch;margin:0 auto}
+.lwgrid .btn{font-size:1.7rem;padding:0}
+.lwsym{display:grid;place-items:center;font-size:4rem;font-weight:700;line-height:1}
+.dgrid{display:grid;gap:.3rem;overflow:auto;flex:1;min-height:0;align-content:start}
+.dcell{min-height:3.1rem;font-size:1.1rem;padding:.2rem .3rem;background:var(--surface);border:2px solid var(--line-strong);border-radius:.4rem;cursor:pointer;color:var(--ink);text-align:center;overflow:hidden}
+.dcell sub,.dcell sup{font-size:.6em}
+.dcell.hdr{font-weight:700;background:var(--surface-2)}
+.dcell[aria-pressed="true"]{outline:4px solid var(--sel);outline-offset:0;z-index:1}
+.di table{border-collapse:collapse;font-size:.6em}
+.doc.big .di table{font-size:.75em}
+.di td,.di th{border:1px solid var(--ink);padding:.1em .5em;text-align:center}
+.bigtext .dcell{font-size:1rem}
+/* calculator */
+.cexpr{min-height:4rem;font-size:1.8rem;text-align:right;overflow-x:auto;white-space:nowrap;background:var(--bg);border:2px dashed var(--line-strong);border-radius:.6rem;padding:.4rem .8rem;display:flex;justify-content:flex-end;align-items:center}
+.cexpr sup,.cres sup{font-size:.6em}
+.cres{min-height:4.2rem;font-size:3rem;font-weight:700;text-align:right;overflow-x:auto;white-space:nowrap;padding:0 .8rem}
+.ckeys{flex:1;min-height:0;display:grid;gap:.4rem;grid-template-columns:repeat(6,1fr);grid-auto-rows:minmax(3.2rem,1fr)}
+.ckeys .btn{font-size:1.3rem;padding-inline:.1rem}
+.about{position:fixed;inset:.5rem;z-index:65;overflow-y:auto;background:var(--surface);border:2px solid var(--line-strong);border-radius:.8rem;padding:1rem 1.2rem;display:flex;flex-direction:column;gap:.7rem}
+.about h2{font-size:1.3rem;margin-top:.4rem}.about ul{margin:0;padding-left:1.3rem}.about li{margin:.2rem 0}
+/* math */
+.mdisplay{background:var(--bg);border:2px dashed var(--line-strong);border-radius:.6rem;min-height:8.5rem;padding:.4rem .6rem;display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .5rem;font-size:2rem;line-height:1.25;overflow-y:auto}
+.mpart{display:inline-block;background:none;border:2px dashed transparent;border-radius:.4rem;padding:.1rem .35rem;font:inherit;color:inherit;cursor:pointer;min-height:2.6rem;white-space:nowrap}
+.mpart.cur{border-color:var(--sel);background:rgba(242,183,5,.22)}
+.mpart sup,.mpart sub{font-size:.6em}
+.mph{color:var(--muted)}
+.mfrac{display:inline-flex;flex-direction:column;align-items:stretch;text-align:center}
+.mbar{height:3px;background:var(--ink);margin:.05rem 0}
+.key{font-size:1.25rem;padding-inline:.1rem}
+.key.small{font-size:.8rem}
+/* draw */
+.board{flex:1;min-height:0;background:var(--surface);border:2px solid var(--line-strong);border-radius:.6rem;overflow:hidden}
+.board svg{display:block;width:100%;height:100%}
+.cellhit{fill:var(--sel);fill-opacity:0;cursor:pointer}
+.cellhit:hover{fill-opacity:.28}
+.hint{font-size:1.05rem;font-weight:700;margin:0;min-height:1.4rem}
+.overlay{position:absolute;inset:0;z-index:15;background:var(--bg);display:flex;flex-direction:column;gap:.5rem}
+.drawtool{grid-template-columns:13rem minmax(0,1fr)}
+@media (max-width:899px){.drawtool{grid-template-columns:minmax(0,1fr)}}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(.8rem + env(safe-area-inset-bottom,0px));z-index:60;
+  max-width:calc(100% - 2rem);background:var(--ink);color:var(--bg);padding:.7rem 1.1rem;border-radius:.6rem;font-weight:700;font-size:1.05rem;pointer-events:none}
+#fallbackBox{position:fixed;left:1rem;right:1rem;bottom:1rem;z-index:70}
+#fallbackBox textarea{width:100%;min-height:6rem;font:inherit;font-size:1.1rem;background:var(--bg);color:var(--ink);border:2px solid var(--line-strong);border-radius:.5rem;padding:.6rem}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><h1 class="sr">Chemistry Workbench</h1>
+  <div class="topbar">
+    <nav class="tabs" role="tablist" aria-label="Tools">
+      <button class="btn" role="tab" id="tab-formula" aria-controls="p-formula" data-act="tab" data-v="formula">Formula</button>
+      <button class="btn" role="tab" id="tab-draw" aria-controls="p-draw" data-act="tab" data-v="draw">Structure</button>
+      <button class="btn" role="tab" id="tab-name" aria-controls="p-name" data-act="tab" data-v="name">Name</button>
+      <button class="btn" role="tab" id="tab-math" aria-controls="p-math" data-act="tab" data-v="math">Math</button>
+      <button class="btn" role="tab" id="tab-calc" aria-controls="p-calc" data-act="tab" data-v="calc" hidden>Calculator</button>
+      <button class="btn" role="tab" id="tab-atom" aria-controls="p-atom" data-act="tab" data-v="atom">Atoms</button>
+      <button class="btn" role="tab" id="tab-data" aria-controls="p-data" data-act="tab" data-v="data">Data</button>
+      <button class="btn" role="tab" id="tab-words" aria-controls="p-words" data-act="tab" data-v="words">Words</button>
+      <button class="btn" role="tab" id="tab-table" aria-controls="p-table" data-act="tab" data-v="table">Table</button>
+      <button class="btn" role="tab" id="tab-doc" aria-controls="p-doc" data-act="tab" data-v="doc">Document</button>
+    </nav>
+    <button class="btn" data-act="toggleSettings" aria-expanded="false" aria-controls="settings">Settings</button>
+  </div>
+  </header>
+  <div id="settings" role="dialog" aria-label="Settings" hidden>
+    <div class="row"><h2 class="grow" style="margin:0">Settings</h2><button class="btn primary" data-act="toggleSettings">Close settings</button></div>
+    <div class="sgrid">
+      <div class="sgroup"><span class="lbl">Text size</span>
+        <button class="btn" data-act="set" data-k="size" data-v="n">Normal</button>
+        <button class="btn" data-act="set" data-k="size" data-v="l">Large</button>
+        <button class="btn" data-act="set" data-k="size" data-v="x">Extra large</button></div>
+      <div class="sgroup"><span class="lbl">Font</span>
+        <button class="btn" data-act="set" data-k="font" data-v="andika">Andika</button>
+        <button class="btn" data-act="set" data-k="font" data-v="atkinson">Atkinson</button></div>
+      <div class="sgroup"><span class="lbl">Theme</span>
+        <button class="btn" data-act="set" data-k="theme" data-v="auto">Auto</button>
+        <button class="btn" data-act="set" data-k="theme" data-v="light">Light</button>
+        <button class="btn" data-act="set" data-k="theme" data-v="dark">Dark</button>
+        <button class="btn" data-act="set" data-k="theme" data-v="hc">High contrast</button></div>
+      <div class="sgroup"><span class="lbl">Text spacing</span>
+        <button class="btn" data-act="set" data-k="spacing" data-v="0">Normal</button>
+        <button class="btn" data-act="set" data-k="spacing" data-v="1">Increased</button></div>
+      <div class="sgroup"><span class="lbl">Minimum text</span>
+        <button class="btn" data-act="set" data-k="floor" data-v="0">Fit one screen</button>
+        <button class="btn" data-act="set" data-k="floor" data-v="1">24 px minimum</button></div>
+      <div class="sgroup"><span class="lbl">Voice</span>
+        <button class="btn" data-act="set" data-k="voice" data-v="0">Off</button>
+        <button class="btn" data-act="set" data-k="voice" data-v="1">On</button>
+        <button class="btn" data-act="stopSpeech">Stop speaking</button></div>
+      <div class="sgroup"><span class="lbl">Dwell click</span>
+        <button class="btn" data-act="set" data-k="dwell" data-v="0">Off</button>
+        <button class="btn" data-act="set" data-k="dwell" data-v="1">On</button></div>
+      <div class="sgroup"><span class="lbl">Dwell time</span>
+        <button class="btn" data-act="set" data-k="dwellMs" data-v="600">0.6 s</button>
+        <button class="btn" data-act="set" data-k="dwellMs" data-v="1000">1.0 s</button>
+        <button class="btn" data-act="set" data-k="dwellMs" data-v="1500">1.5 s</button>
+        <button class="btn" data-act="set" data-k="dwellMs" data-v="2000">2.0 s</button></div>
+    </div>
+    <div class="card" id="teacherBox"></div>
+    <p class="note">24 px minimum makes all text at least 24 px and lets screens scroll. Leave dwell click off when iOS Eye Tracking, Dwell Control or AssistiveTouch already presses buttons. Voice reads messages and results aloud. Teacher controls hold the calculator and the optional passcode.</p>
+    <div class="row"><button class="btn" data-act="openAbout">About and review notes</button><button class="btn primary" data-act="toggleSettings">Close</button></div>
+  </div>
+
+  <div class="docstrip" id="docstrip" role="region" aria-label="Document preview and actions">
+    <div class="doc" id="docMini" aria-live="polite"></div>
+    <div class="docbtns">
+      <button class="btn primary" data-act="docCopy">Copy all</button>
+      <button class="btn" data-act="docBreak">New line</button>
+      <button class="btn" data-act="docUndo">Undo last</button>
+      <button class="btn warn" data-act="docClear" id="docClearMini">Clear all</button>
+    </div>
+  </div>
+
+  <main class="stage" id="main">
+    <!-- FORMULA -->
+    <section id="p-formula" class="tool" role="tabpanel" aria-labelledby="tab-formula">
+      <h2 class="sr">Formula builder</h2>
+      <div class="col">
+        <div class="card">
+          <div class="fdisplay" id="fDisplay"></div>
+          <div class="row" id="fTokens" role="group" aria-label="Pieces in the formula. Select one to change its subscript."></div>
+          <div class="grid g3">
+            <button class="btn warn" data-act="fClear">Clear formula</button>
+            <button class="btn" data-act="fUndo">Remove last</button>
+            <button class="btn primary" data-act="fInsert">Insert into document</button>
+          </div>
+        </div>
+        <div class="card">
+          <span class="lbl">Subscript for <span id="subFor">selected piece</span></span>
+          <div class="grid g6" id="subPad"></div>
+        </div>
+        <div class="card">
+          <span class="lbl">Charge of whole formula</span>
+          <div class="grid g7" id="chgRow"></div>
+          <div class="grid g2"><button class="btn" id="bracketBtn" data-act="fBrackets" aria-pressed="false">Brackets [ ]</button>
+            <button class="btn" id="useIon" data-act="fUseIon" disabled>Use the ion's charge</button></div>
+        </div>
+      </div>
+      <div class="card" id="fPick"></div>
+    </section>
+
+    <!-- DRAW -->
+    <section id="p-draw" class="tool drawtool" role="tabpanel" aria-labelledby="tab-draw" hidden>
+      <h2 class="sr">Structure drawing</h2>
+      <div class="col">
+        <div class="card">
+          <span class="lbl">Tool</span>
+          <div class="grid g1" id="dModes" style="grid-template-columns:1fr"></div>
+        </div>
+        <div class="card">
+          <span class="lbl">Atom to place</span>
+          <div class="grid g4" id="dAtoms"></div>
+        </div>
+      </div>
+      <div class="col">
+        <p class="hint" id="dHint"></p>
+        <div class="board" id="dBoard"></div>
+        <div class="row">
+          <button class="btn" data-act="dChg" data-v="-1">Charge −</button>
+          <b id="dChg" style="font-size:1.4rem;min-width:2.4rem;text-align:center">0</b>
+          <button class="btn" data-act="dChg" data-v="1">Charge +</button>
+          <button class="btn" id="dBrk" data-act="dBrk" aria-pressed="false">Brackets [ ]</button>
+          <button class="btn" data-act="dUndo">Undo</button>
+          <button class="btn warn" data-act="dClear">Clear</button>
+          <button class="btn primary grow" data-act="dInsert">Insert into document</button>
+        </div>
+      </div>
+      <div class="overlay card" id="dOther" hidden>
+        <div class="row"><span class="lbl grow">Choose an element to draw with</span><button class="btn" data-act="dOtherClose">Cancel</button></div>
+        <div id="dOtherPick" style="flex:1;min-height:0"></div>
+      </div>
+    </section>
+
+    <!-- NAME -->
+    <section id="p-name" class="tool" role="tabpanel" aria-labelledby="tab-name" hidden>
+      <h2 class="sr">Compound naming</h2>
+      <div class="col">
+        <div class="card">
+          <div class="nm-out" id="nOut" aria-live="polite"></div>
+          <div class="grid g3">
+            <button class="btn warn" data-act="nClear">Clear name</button>
+            <button class="btn" data-act="nUndo">Remove last</button>
+            <button class="btn primary" data-act="nInsert">Insert into document</button>
+          </div>
+        </div>
+        <div class="card">
+          <span class="lbl">Covalent prefixes</span>
+          <div class="grid g5" id="nPre"></div>
+          <span class="lbl">Roman numerals</span>
+          <div class="grid g7" id="nRom"></div>
+          <span class="lbl">Acid parts</span>
+          <div class="grid g4" id="nAcid"></div>
+          <button class="btn" id="nIde" data-act="nIde" aria-pressed="false">Use -ide ending for element names</button>
+        </div>
+      </div>
+      <div class="card" id="nPick"></div>
+    </section>
+
+    <!-- MATH -->
+    <section id="p-math" class="tool" role="tabpanel" aria-labelledby="tab-math" hidden>
+      <h2 class="sr">Calculation writing</h2>
+      <div class="col">
+        <div class="card">
+          <div class="mdisplay" id="mDisplay" aria-live="polite"></div>
+          <p class="hint" id="mHint"></p>
+          <div class="grid g3">
+            <button class="btn warn" data-act="mClear">Clear</button>
+            <button class="btn" data-act="mUndo">Remove last</button>
+            <button class="btn primary" data-act="mInsert">Insert into document</button>
+          </div>
+        </div>
+        <div class="card">
+          <span class="lbl">Fraction, for setting up unit conversions</span>
+          <div class="grid g3">
+            <button class="btn" data-act="mFracStart">Start fraction</button>
+            <button class="btn" data-act="mFracBot">Go to bottom</button>
+            <button class="btn" data-act="mFracEnd">End fraction</button>
+          </div>
+          <p class="note">Example: 25.0 g, then ×, then Start fraction: top 1 mol, Go to bottom, 18.02 g, End fraction.</p>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card"><div class="grid g7" id="mPad"></div></div>
+        <div class="card" id="mUnits" style="flex:1"></div>
+      </div>
+    </section>
+
+    <!-- ATOMS -->
+    <section id="p-atom" class="tool" role="tabpanel" aria-labelledby="tab-atom" hidden>
+      <h2 class="sr">Atoms: isotope and nuclear notation, electron configurations and Lewis dot symbols</h2>
+      <div class="col">
+        <div class="card"><div class="grid g3" id="aModes"></div></div>
+        <div class="amode" data-m="iso">
+          <div class="card">
+            <div class="fdisplay" id="iDisplay" aria-live="polite"></div>
+            <div class="grid g3"><button class="btn warn" data-act="iClear">Clear</button><button class="btn" data-act="iUndo">Remove last</button><button class="btn primary" data-act="iInsert">Insert into document</button></div>
+          </div>
+          <div class="card">
+            <span class="lbl">Isotope to add. Pick a number box, then use the keypad.</span>
+            <div class="grid g3">
+              <button class="btn" data-act="iField" data-v="mass" data-k="ifm" aria-pressed="true">Mass number <b id="iMass">▢</b></button>
+              <button class="btn" data-act="iField" data-v="atomic" data-k="ifa" aria-pressed="false">Atomic number <b id="iAtomic">▢</b></button>
+              <div class="fdisplay" id="iPrev" style="font-size:2rem;min-height:3.4rem;justify-content:center;padding:.1rem" aria-label="Preview"></div>
+            </div>
+            <div class="grid g2"><button class="btn" id="iAuto" data-act="iAuto" aria-pressed="true">Fill atomic number from table</button><button class="btn primary" data-act="iAdd">Add isotope to equation</button></div>
+          </div>
+          <div class="card">
+            <span class="lbl">Particles and symbols</span>
+            <div class="grid g6" id="iPart"></div>
+            <div class="grid g7" id="iSym"></div>
+          </div>
+        </div>
+        <div class="amode" data-m="ec" hidden>
+          <div class="card">
+            <div class="fdisplay" id="eDisplay" aria-live="polite"></div>
+            <div class="grid g3"><button class="btn warn" data-act="eClear">Clear</button><button class="btn" data-act="eUndo">Remove last</button><button class="btn primary" data-act="eInsert">Insert into document</button></div>
+          </div>
+          <div class="card">
+            <span class="lbl">Noble gas shorthand</span>
+            <div class="grid g6" id="eGas"></div>
+            <p class="note">Choose a shell, then a subshell, then the number of electrons. The orbital is added when you choose the number. Shell and subshell stay selected for the next orbital.</p>
+          </div>
+        </div>
+        <div class="amode" data-m="lw" hidden>
+          <div class="card" style="align-items:center">
+            <div class="row" style="justify-content:center;gap:.3rem;flex-wrap:nowrap">
+              <span id="lwL" style="font-size:7rem;line-height:1;font-weight:300" aria-hidden="true"></span>
+              <div class="lwgrid" id="lwGrid" role="group" aria-label="Lewis dot symbol"></div>
+              <span id="lwR" style="font-size:7rem;line-height:1;font-weight:300" aria-hidden="true"></span>
+            </div>
+            <p class="hint" id="lwInfo" style="text-align:center"></p>
+          </div>
+          <div class="card">
+            <div class="row">
+              <button class="btn" data-act="lwChg" data-v="-1">Charge −</button>
+              <b id="lwChg" style="font-size:1.4rem;min-width:2.4rem;text-align:center">0</b>
+              <button class="btn" data-act="lwChg" data-v="1">Charge +</button>
+              <button class="btn" id="lwBrk" data-act="lwBrk" aria-pressed="false">Brackets [ ]</button>
+            </div>
+            <div class="grid g2"><button class="btn warn" data-act="lwClear">Clear</button><button class="btn primary" data-act="lwInsert">Insert into document</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="amode" data-m="iso">
+          <div class="card"><span class="lbl">Keypad for the selected number</span><div class="grid g7" id="iPad"></div></div>
+          <div class="card" id="iPick" style="flex:1"></div>
+        </div>
+        <div class="amode" data-m="ec" hidden>
+          <div class="card">
+            <span class="lbl">Shell</span><div class="grid g7" id="eShell"></div>
+            <span class="lbl">Subshell</span><div class="grid g4" id="eSub"></div>
+            <span class="lbl">Electrons in the subshell</span><div class="grid g7" id="eCnt"></div>
+          </div>
+        </div>
+        <div class="amode" data-m="lw" hidden>
+          <div class="card" id="lPick" style="flex:1"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DATA -->
+    <section id="p-data" class="tool" role="tabpanel" aria-labelledby="tab-data" hidden>
+      <h2 class="sr">Data table</h2>
+      <div class="col">
+        <div class="card" style="flex:1">
+          <div class="grid g4">
+            <button class="btn" data-act="dRow" data-v="1">Add row</button>
+            <button class="btn" data-act="dRow" data-v="-1">Remove row</button>
+            <button class="btn" data-act="dCol" data-v="1">Add column</button>
+            <button class="btn" data-act="dCol" data-v="-1">Remove column</button>
+          </div>
+          <div class="dgrid" id="dGrid" role="group" aria-label="Data table. Select a cell to edit it."></div>
+          <div class="grid g4">
+            <button class="btn" id="dHdr" data-act="dHdr" aria-pressed="true">Header row</button>
+            <button class="btn" data-act="dNext">Next cell</button>
+            <button class="btn" data-act="dCellUndo">Remove last</button>
+            <button class="btn" data-act="dCellClear">Clear cell</button>
+          </div>
+          <div class="row"><label for="dText" class="lbl">Type text</label><input id="dText" type="text" style="flex:1;min-width:8rem;font:inherit;font-size:1.1rem;padding:.5rem;background:var(--bg);color:var(--ink);border:2px solid var(--line-strong);border-radius:.5rem;-webkit-user-select:text;user-select:text"><button class="btn" data-act="dAddText">Add to cell</button></div>
+          <div class="grid g2"><button class="btn warn" data-act="dReset">Clear table</button><button class="btn primary" data-act="tbInsert">Insert into document</button></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card"><div class="grid g7" id="dPad"></div></div>
+        <div class="card" id="dUnits" style="flex:1"></div>
+      </div>
+    </section>
+
+    <!-- WORDS -->
+    <section id="p-words" class="tool" role="tabpanel" aria-labelledby="tab-words" hidden>
+      <h2 class="sr">Words and symbols</h2>
+      <div class="col">
+        <div class="card">
+          <span class="lbl">Type with the iPad keyboard</span>
+          <textarea id="wText" aria-label="Type text to insert" rows="2" style="width:100%;font:inherit;font-size:1.3rem;background:var(--bg);color:var(--ink);border:2px solid var(--line-strong);border-radius:.5rem;padding:.5rem"></textarea>
+          <div class="grid g2"><button class="btn primary" data-act="wInsert">Insert text</button><button class="btn" data-act="wInsertNl">Insert, then new line</button></div>
+        </div>
+        <div class="card">
+          <span class="lbl">Symbols</span>
+          <div class="grid g7" id="wSym"></div>
+          <span class="lbl">Numbers and coefficients</span>
+          <div class="grid g5" id="wNum"></div>
+          <button class="btn" id="wCap" data-act="wCap" aria-pressed="false">Capitalize next word</button>
+        </div>
+      </div>
+      <div class="card" id="wBank"></div>
+    </section>
+
+    <!-- TABLE -->
+    <section id="p-table" class="tool" role="tabpanel" aria-labelledby="tab-table" hidden style="grid-template-columns:minmax(0,1fr)">
+      <h2 class="sr">Periodic table</h2>
+      <div class="card" style="min-height:0">
+        <div class="row">
+          <button class="btn" data-act="tView" data-v="table" aria-pressed="true">Full table</button>
+          <button class="btn" data-act="tView" data-v="family" aria-pressed="false">Large buttons by family</button>
+        </div>
+        <div id="tHost" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>
+      </div>
+    </section>
+
+    <!-- DOCUMENT -->
+    <section id="p-doc" class="tool" role="tabpanel" aria-labelledby="tab-doc" hidden style="grid-template-columns:minmax(0,1fr)">
+      <h2 class="sr">Document</h2>
+      <div class="card" style="min-height:0">
+        <div class="grid g5">
+          <button class="btn primary" data-act="docCopy">Copy all</button>
+          <button class="btn" data-act="docRead">Read aloud</button>
+          <button class="btn" data-act="docBreak">New line</button>
+          <button class="btn warn" data-act="docDelSel">Delete selected</button>
+          <button class="btn warn" data-act="docClear" id="docClearBig">Clear all</button>
+        </div>
+        <p class="note">Tap an item to select it, then Delete selected.</p>
+        <div class="doc big" id="docBig"></div>
+      </div>
+    </section>
+
+    <!-- CALCULATOR -->
+    <section id="p-calc" class="tool" role="tabpanel" aria-labelledby="tab-calc" hidden>
+      <h2 class="sr">Calculator</h2>
+      <div class="col">
+        <div class="card">
+          <div class="cexpr" id="cExpr" aria-label="Expression"></div>
+          <div class="cres" id="cRes" aria-live="polite"></div>
+          <span class="lbl">Round result to significant figures</span>
+          <div class="grid g5" id="cSig"></div>
+          <div class="grid g2">
+            <button class="btn" data-act="cAns">Use previous answer</button>
+            <button class="btn" data-act="cEq" data-k="ceq2">Calculate (=)</button>
+          </div>
+          <div class="grid g3">
+            <button class="btn primary" data-act="cInsCalc">Insert calculation</button>
+            <button class="btn primary" data-act="cInsRes">Insert result</button>
+            <button class="btn primary" data-act="cToMath">Send result to Math</button>
+          </div>
+        </div>
+      </div>
+      <div class="card"><div class="ckeys" id="cKeys"></div></div>
+    </section>
+  </main>
+</div>
+<div id="live" class="sr" aria-live="polite"></div>
+
+<div class="lockbox" id="lock" role="dialog" aria-label="Passcode" hidden>
+  <div class="card" style="width:min(26rem,94%);align-items:stretch">
+    <h2 id="lockTitle" style="font-size:1.4rem;text-align:center">Enter passcode</h2>
+    <div id="lockDots" style="font-size:2.4rem;text-align:center;letter-spacing:.4em;min-height:3.2rem" aria-hidden="true"></div>
+    <p class="hint" id="lockMsg" style="text-align:center" aria-live="polite"></p>
+    <div class="grid g3" id="lockPad"></div>
+  </div>
+</div>
+<div class="about" id="about" role="dialog" aria-label="About and review notes" hidden>
+  <div class="row"><h2 class="grow" style="margin:0">About and review notes</h2><button class="btn primary" data-act="closeAbout">Close</button></div>
+  <h2>Accessibility features in this tool</h2>
+  <ul>
+    <li>Every function works by touch, mouse, keyboard, switch or eye gaze. Placement is tap to place, with no dragging.</li>
+    <li>Targets are at least 40 px and mostly 50 px or larger, spaced apart, and nothing scrolls on a tablet in landscape. Long lists are paged.</li>
+    <li>Settings: text size, an optional 24 px minimum text mode, Andika or Atkinson Hyperlegible font, light, dark and high contrast themes, increased text spacing, dwell click with adjustable time, voice output with a Stop button, and an optional calculator.</li>
+    <li>Selected buttons use a bar and a fill, not color alone. Toggles use aria-pressed. Results are announced in a live region.</li>
+    <li>The optional passcode only deters accidental changes. It is stored in this browser, and clearing the browser's site data removes it.</li>
+    <li>No time limits, no flashing and no automatic audio. The page language is set to English.</li>
+    <li>Pasted documents keep subscripts and charges as text. Structures and fraction calculations paste as pictures with alt text.</li>
+  </ul>
+  <h2>Standards used</h2>
+  <ul>
+    <li>Content aligned to the Texas Chemistry TEKS, 19 TAC §112.43: Formula and Name tabs (7)(B) and (12)(A); Structure (6)(E) and (7)(C); Table (5)(B) and (5)(C); Math and Calculator (8), (9)(C), (11)(E), (11)(F), (12)(E) and (13)(D); Atoms (6)(B), (6)(E) and (14)(A); Data (1)(F); Words (3)(B) and (9)(A). Checked against the Cornell LII copy, not the official TEA text.</li>
+    <li>Accessibility design follows WCAG 2.2 AA, CAST UDL Guidelines and CITES guidance.</li>
+  </ul>
+  <h2>Source details to verify</h2>
+  <ul>
+    <li>The polyatomic ion list, electronegativity values and naming conventions are not copied from the class sheets. The teacher should compare them against the Unit 6 and Unit 7 materials.</li>
+    <li>The Unit 7 key spells "tetraoxide" but "octoxide". The tool drops the final vowel only for mono- and octa-.</li>
+  </ul>
+  <h2>Needs a person before classroom use</h2>
+  <ul>
+    <li>Testing with a screen reader.</li>
+    <li>Scanning access (board or auditory) is not included. It can be added for students who need it.</li>
+    <li>Testing with the student's eye tracking or AssistiveTouch on her own device.</li>
+    <li>A review of target size, spacing and dwell time by her AT specialist or OT.</li>
+    <li>A check of the voice output. It uses the device voice and reads subscripts as "sub".</li>
+    <li>A trial with the student and teacher.</li>
+    <li>The scripted checks run so far are not a formal WCAG conformance audit.</li>
+  </ul>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="card" id="fallbackBox" hidden>
+  <span class="lbl">Copy was blocked here. Select this text and copy it.</span>
+  <textarea id="fallbackTxt" readonly></textarea>
+  <button class="btn" data-act="closeFallback">Close</button>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+/* ---------- settings ---------- */
+const S={size:'n',font:'andika',theme:'auto',spacing:'0',floor:'0',calc:'0',voice:'0',dwell:'0',dwellMs:'1000',pass:null,lockScope:'teacher'};
+let UNL=false;
+const hostTheme=document.documentElement.getAttribute('data-theme');
+document.documentElement.lang='en';
+let curTab='formula';
+try{Object.assign(S,JSON.parse(localStorage.getItem('chemwb2')||'{}'))}catch(e){}
+function applySettings(){
+  document.documentElement.style.fontSize=S.floor==='1'?'24px':({n:'16px',l:'19px',x:'22px'}[S.size]||'16px');
+  document.documentElement.classList.toggle('bigtext',S.floor==='1');
+  renderTeacher();
+  document.documentElement.style.setProperty('--dwell-ms',S.dwellMs+'ms');
+  document.documentElement.style.setProperty('--font',S.font==='andika'?"'Andika','Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',Arial,sans-serif":"'Atkinson Hyperlegible','Andika',system-ui,-apple-system,'Segoe UI',Arial,sans-serif");
+  const th=S.theme==='auto'?hostTheme:S.theme;
+  if(th)document.documentElement.setAttribute('data-theme',th);else document.documentElement.removeAttribute('data-theme');
+  document.documentElement.classList.toggle('tsp',S.spacing==='1');
+  const tc=$('#tab-calc');if(tc){tc.hidden=S.calc!=='1';if(S.calc!=='1'&&curTab==='calc')showTab('formula')}
+  $$('[data-act="set"]').forEach(b=>b.setAttribute('aria-pressed',String(S[b.dataset.k]===b.dataset.v)));
+  try{localStorage.setItem('chemwb2',JSON.stringify(S))}catch(e){}
+}
+
+const RAW=`H Hydrogen 1.008 2.20
+He Helium 4.003 -
+Li Lithium 6.94 0.98
+Be Beryllium 9.012 1.57
+B Boron 10.81 2.04
+C Carbon 12.011 2.55
+N Nitrogen 14.007 3.04
+O Oxygen 15.999 3.44
+F Fluorine 18.998 3.98
+Ne Neon 20.180 -
+Na Sodium 22.990 0.93
+Mg Magnesium 24.305 1.31
+Al Aluminum 26.982 1.61
+Si Silicon 28.085 1.90
+P Phosphorus 30.974 2.19
+S Sulfur 32.06 2.58
+Cl Chlorine 35.45 3.16
+Ar Argon 39.948 -
+K Potassium 39.098 0.82
+Ca Calcium 40.078 1.00
+Sc Scandium 44.956 1.36
+Ti Titanium 47.867 1.54
+V Vanadium 50.942 1.63
+Cr Chromium 51.996 1.66
+Mn Manganese 54.938 1.55
+Fe Iron 55.845 1.83
+Co Cobalt 58.933 1.88
+Ni Nickel 58.693 1.91
+Cu Copper 63.546 1.90
+Zn Zinc 65.38 1.65
+Ga Gallium 69.723 1.81
+Ge Germanium 72.630 2.01
+As Arsenic 74.922 2.18
+Se Selenium 78.971 2.55
+Br Bromine 79.904 2.96
+Kr Krypton 83.798 3.00
+Rb Rubidium 85.468 0.82
+Sr Strontium 87.62 0.95
+Y Yttrium 88.906 1.22
+Zr Zirconium 91.224 1.33
+Nb Niobium 92.906 1.6
+Mo Molybdenum 95.95 2.16
+Tc Technetium 98 1.9
+Ru Ruthenium 101.07 2.2
+Rh Rhodium 102.906 2.28
+Pd Palladium 106.42 2.20
+Ag Silver 107.868 1.93
+Cd Cadmium 112.414 1.69
+In Indium 114.818 1.78
+Sn Tin 118.710 1.96
+Sb Antimony 121.760 2.05
+Te Tellurium 127.60 2.1
+I Iodine 126.904 2.66
+Xe Xenon 131.293 2.6
+Cs Cesium 132.905 0.79
+Ba Barium 137.327 0.89
+La Lanthanum 138.905 1.10
+Ce Cerium 140.116 1.12
+Pr Praseodymium 140.908 1.13
+Nd Neodymium 144.242 1.14
+Pm Promethium 145 -
+Sm Samarium 150.36 1.17
+Eu Europium 151.964 -
+Gd Gadolinium 157.25 1.20
+Tb Terbium 158.925 -
+Dy Dysprosium 162.500 1.22
+Ho Holmium 164.930 1.23
+Er Erbium 167.259 1.24
+Tm Thulium 168.934 1.25
+Yb Ytterbium 173.045 -
+Lu Lutetium 174.967 1.27
+Hf Hafnium 178.49 1.3
+Ta Tantalum 180.948 1.5
+W Tungsten 183.84 2.36
+Re Rhenium 186.207 1.9
+Os Osmium 190.23 2.2
+Ir Iridium 192.217 2.20
+Pt Platinum 195.084 2.28
+Au Gold 196.967 2.54
+Hg Mercury 200.592 2.00
+Tl Thallium 204.38 1.62
+Pb Lead 207.2 2.33
+Bi Bismuth 208.980 2.02
+Po Polonium 209 2.0
+At Astatine 210 2.2
+Rn Radon 222 -
+Fr Francium 223 0.7
+Ra Radium 226 0.9
+Ac Actinium 227 1.1
+Th Thorium 232.038 1.3
+Pa Protactinium 231.036 1.5
+U Uranium 238.029 1.38
+Np Neptunium 237 1.36
+Pu Plutonium 244 1.28
+Am Americium 243 1.3
+Cm Curium 247 1.3
+Bk Berkelium 247 1.3
+Cf Californium 251 1.3
+Es Einsteinium 252 1.3
+Fm Fermium 257 1.3
+Md Mendelevium 258 1.3
+No Nobelium 259 1.3
+Lr Lawrencium 266 -
+Rf Rutherfordium 267 -
+Db Dubnium 268 -
+Sg Seaborgium 269 -
+Bh Bohrium 270 -
+Hs Hassium 277 -
+Mt Meitnerium 278 -
+Ds Darmstadtium 281 -
+Rg Roentgenium 282 -
+Cn Copernicium 285 -
+Nh Nihonium 286 -
+Fl Flerovium 289 -
+Mc Moscovium 290 -
+Lv Livermorium 293 -
+Ts Tennessine 294 -
+Og Oganesson 294 -`;
+const EL=[null,...RAW.split('\n').map((l,i)=>{const [s,n,m,e]=l.split(' ');return {z:i+1,s,n,m,en:e==='-'?null:e}})];
+const BYSYM={}; EL.forEach(e=>{if(e)BYSYM[e.s]=e});
+
+const CATS={
+  alkali:{n:'Alkali metals',h:0}, alkaline:{n:'Alkaline earth metals',h:30},
+  lanth:{n:'Lanthanides',h:55}, actin:{n:'Actinides',h:85},
+  nonmetal:{n:'Nonmetals',h:140}, post:{n:'Post-transition metals',h:175},
+  trans:{n:'Transition metals',h:210}, noble:{n:'Noble gases',h:250},
+  metalloid:{n:'Metalloids',h:285}, halogen:{n:'Halogens',h:325}
+};
+function catOf(z){
+  if([3,11,19,37,55,87].includes(z))return'alkali';
+  if([4,12,20,38,56,88].includes(z))return'alkaline';
+  if(z>=57&&z<=71)return'lanth'; if(z>=89&&z<=103)return'actin';
+  if([2,10,18,36,54,86,118].includes(z))return'noble';
+  if([9,17,35,53,85,117].includes(z))return'halogen';
+  if([5,14,32,33,51,52].includes(z))return'metalloid';
+  if([1,6,7,8,15,16,34].includes(z))return'nonmetal';
+  if([13,31,49,50,81,82,83,84,113,114,115,116].includes(z))return'post';
+  return'trans';
+}
+EL.forEach(e=>{if(e)e.c=catOf(e.z)});
+function pos(z){
+  if(z>=57&&z<=71)return[9,z-57+3]; if(z>=89&&z<=103)return[10,z-89+3];
+  const per=z<=2?1:z<=10?2:z<=18?3:z<=36?4:z<=54?5:z<=86?6:7;
+  const start=[0,1,3,11,19,37,55,87][per], i=z-start;
+  if(per===1)return[1,i===0?1:18];
+  if(per<=3)return[per,i<2?i+1:i+11];
+  if(per<=5)return[per,i+1];
+  return[per,i<2?i+1:z-(per===6?72:104)+4];
+}
+EL.forEach(e=>{if(e){const [r,c]=pos(e.z);e.r=r;e.col=c;e.per=r>7?(r===9?6:7):r}});
+const CH={H:'+1',Li:'+1',Na:'+1',K:'+1',Rb:'+1',Cs:'+1',Fr:'+1',Be:'+2',Mg:'+2',Ca:'+2',Sr:'+2',Ba:'+2',Ra:'+2',
+  Al:'+3',Ga:'+3',Sc:'+3',Zn:'+2',Cd:'+2',Ag:'+1',Ni:'+2',Co:'+2, +3',Fe:'+2, +3',Cu:'+1, +2',Mn:'+2, +4, +7',Cr:'+2, +3, +6',
+  Ti:'+4, +3',V:'+5, +4, +3',Sn:'+2, +4',Pb:'+2, +4',Hg:'+1, +2',Au:'+1, +3',Pt:'+2, +4',Bi:'+3, +5',
+  N:'−3',P:'−3',O:'−2',S:'−2',Se:'−2',Te:'−2',As:'−3',F:'−1',Cl:'−1',Br:'−1',I:'−1',At:'−1',
+  He:'0',Ne:'0',Ar:'0',Kr:'0',Xe:'0',Rn:'0'};
+const IDE={H:'hydride',B:'boride',C:'carbide',N:'nitride',O:'oxide',F:'fluoride',Si:'silicide',P:'phosphide',S:'sulfide',
+  Cl:'chloride',As:'arsenide',Se:'selenide',Br:'bromide',Te:'telluride',I:'iodide',At:'astatide'};
+
+const ION_LIST=[
+ ['ClO','hypochlorite',-1,'Halogen'],['ClO2','chlorite',-1,'Halogen'],['ClO3','chlorate',-1,'Halogen'],['ClO4','perchlorate',-1,'Halogen'],
+ ['BrO','hypobromite',-1,'Halogen'],['BrO2','bromite',-1,'Halogen'],['BrO3','bromate',-1,'Halogen'],['BrO4','perbromate',-1,'Halogen'],
+ ['IO','hypoiodite',-1,'Halogen'],['IO2','iodite',-1,'Halogen'],['IO3','iodate',-1,'Halogen'],['IO4','periodate',-1,'Halogen'],
+ ['NH4','ammonium',1,'Nitrogen'],['NO2','nitrite',-1,'Nitrogen'],['NO3','nitrate',-1,'Nitrogen'],
+ ['CN','cyanide',-1,'Nitrogen'],['OCN','cyanate',-1,'Nitrogen'],['SCN','thiocyanate',-1,'Nitrogen'],
+ ['PO3','phosphite',-3,'Phosphorus'],['PO4','phosphate',-3,'Phosphorus'],['HPO4','hydrogen phosphate',-2,'Phosphorus'],['H2PO4','dihydrogen phosphate',-1,'Phosphorus'],
+ ['AsO3','arsenite',-3,'Phosphorus'],['AsO4','arsenate',-3,'Phosphorus'],
+ ['SO3','sulfite',-2,'Sulfur'],['SO4','sulfate',-2,'Sulfur'],['HSO3','hydrogen sulfite',-1,'Sulfur'],['HSO4','hydrogen sulfate',-1,'Sulfur'],['S2O3','thiosulfate',-2,'Sulfur'],
+ ['CO3','carbonate',-2,'Carbon'],['HCO3','hydrogen carbonate',-1,'Carbon'],['C2H3O2','acetate',-1,'Carbon'],['C2O4','oxalate',-2,'Carbon'],
+ ['CrO4','chromate',-2,'Metal'],['Cr2O7','dichromate',-2,'Metal'],['MnO4','permanganate',-1,'Metal'],['Hg2','mercury(I)',2,'Metal'],
+ ['OH','hydroxide',-1,'Other'],['O2','peroxide',-2,'Other'],['SiO3','silicate',-2,'Other'],['BO3','borate',-3,'Other']
+].map(([f,n,z,c])=>({f,n,z,c}));
+const IONS={}; ION_LIST.forEach(i=>IONS[i.f]=i);
+
+
+
+/* ---------- text helpers ---------- */
+const SUBS='₀₁₂₃₄₅₆₇₈₉', SUPS='⁰¹²³⁴⁵⁶⁷⁸⁹';
+const uSub=s=>String(s).replace(/\d/g,d=>SUBS[d]);
+const uSup=s=>String(s).replace(/\d/g,d=>SUPS[d]);
+const chgTxt=(m,s)=>m?(m>1?uSup(m):'')+(s>0?'⁺':'⁻'):'';
+const chgHtml=(m,s)=>m?'<sup>'+(m>1?m:'')+(s>0?'+':'−')+'</sup>':'';
+const ionHtml=f=>f.replace(/\d+/g,m=>`<sub>${m}</sub>`);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let toastT;
+function toSpeech(t){return String(t).replace(/[₀-₉]+/g,m=>' sub '+[...m].map(c=>c.charCodeAt(0)-8320).join('')+' ')
+  .replace(/[⁰¹²³⁴-⁹]+/g,m=>' to the power '+[...m].map(c=>'⁰¹²³⁴⁵⁶⁷⁸⁹'.indexOf(c)).join('')+' ')
+  .replace(/⁺/g,' plus charge ').replace(/⁻/g,' minus charge ').replace(/×/g,' times ').replace(/÷/g,' divided by ').replace(/−/g,' minus ').replace(/→/g,' yields ').replace(/Δ/g,' delta ').replace(/\s+/g,' ')}
+function speak(t,force){
+  if(!force&&S.voice!=='1')return;
+  try{if(!('speechSynthesis' in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(toSpeech(t));u.lang='en-US';speechSynthesis.speak(u)}catch(e){}
+}
+function announce(msg){const l=$('#live');if(l){l.textContent='';setTimeout(()=>{l.textContent=msg},30)}speak(msg)}
+function say(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600);speak(msg)}
+
+/* ---------- document ---------- */
+let DOC=[],docSel=-1;
+try{DOC=JSON.parse(localStorage.getItem('chemdoc2')||'[]')}catch(e){DOC=[]}
+function saveDoc(){try{localStorage.setItem('chemdoc2',JSON.stringify(DOC.map(({blob,...r})=>r)))}catch(e){}}
+function spaced(prev,cur){
+  if(!prev||prev.kind==='break'||cur.kind==='break')return false;
+  if(cur.tight||prev.glue)return false;
+  if(prev.digit&&cur.digit)return false;
+  return true;
+}
+function renderDocs(){
+  const build=inter=>{
+    if(!DOC.length)return'<span class="ph">Your document appears here. Build something and choose Insert into document.</span>';
+    let h='',prev=null;
+    DOC.forEach((it,i)=>{
+      if(it.kind==='break'){h+=(inter?`<button class="di" data-act="docSel" data-i="${i}" data-k="d${i}" aria-pressed="${i===docSel}"><span class="brkmark">↵ new line</span></button>`:'')+'<span class="nl"></span>';prev=it;return}
+      const tight=!spaced(prev,it)&&prev&&prev.kind!=='break';
+      const inner=it.img?`<img src="${it.img}" alt="${esc(it.alt)}">`:`<span>${it.html}</span>`;
+      h+=inter?`<button class="di${tight?' tight':''}" data-act="docSel" data-i="${i}" data-k="d${i}" aria-pressed="${i===docSel}">${inner}</button>`
+              :`<span class="di${tight?' tight':''}">${inner}</span>`;
+      prev=it;
+    });
+    return h;
+  };
+  const m=$('#docMini');m.innerHTML=build(false);m.scrollTop=m.scrollHeight;
+  $('#docBig').innerHTML=build(true);
+}
+function addDoc(it){DOC.push(it);docSel=-1;saveDoc();renderDocs();say('Inserted into document')}
+function docText(){
+  let t='',prev=null;
+  DOC.forEach(it=>{
+    if(it.kind==='break'){t+='\n';prev=it;return}
+    if(it.kind==='table'){t+='\n'+it.text+'\n';prev={kind:'break'};return}
+    if(spaced(prev,it))t+=' ';
+    t+=it.kind==='structure'?'['+it.alt+']':it.text;prev=it;
+  });
+  return t;
+}
+function docHtml(){
+  let h='<p>',prev=null;
+  DOC.forEach(it=>{
+    if(it.kind==='break'){h+='</p><p>';prev=it;return}
+    if(it.kind==='table'){h+='</p>'+(it.paste||it.html)+'<p>';prev={kind:'break'};return}
+    if(spaced(prev,it))h+=' ';
+    h+=it.img?`<img src="${it.img}" width="${Math.round(it.w)}" height="${Math.round(it.h)}" alt="${esc(it.alt)}">`:`<span style="font-size:14pt">${it.html}</span>`;
+    prev=it;
+  });
+  return h+'</p>';
+}
+function showFallback(text){$('#fallbackTxt').value=text;$('#fallbackBox').hidden=false;const t=$('#fallbackTxt');t.focus();t.select()}
+function copyDoc(){
+  if(!DOC.length){say('Nothing to copy yet');return}
+  const text=docText(),html=docHtml();
+  let p;
+  try{p=navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([text],{type:'text/plain'})})])}
+  catch(e){p=Promise.reject(e)}
+  p.then(()=>say('Copied. Paste into your document.'))
+   .catch(()=>navigator.clipboard.writeText(text).then(()=>say('Copied as plain text')).catch(()=>showFallback(text)));
+}
+const confirmT={};
+function twoStep(btn,key,label,fn){
+  if(confirmT[key]){clearTimeout(confirmT[key]);confirmT[key]=null;$$('[data-confirm="'+key+'"]').forEach(b=>{b.textContent=b.dataset.orig;b.removeAttribute('aria-pressed')});fn();return}
+  $$('[data-confirm="'+key+'"]').forEach(b=>{b.textContent='Tap again to confirm';b.setAttribute('aria-pressed','true')});
+  confirmT[key]=setTimeout(()=>{confirmT[key]=null;$$('[data-confirm="'+key+'"]').forEach(b=>{b.textContent=b.dataset.orig;b.removeAttribute('aria-pressed')})},3500);
+}
+
+/* ---------- paged picker ---------- */
+const QUICK=['H','C','N','O','F','Na','Mg','Al','Si','P','S','Cl','K','Ca','Fe','Cu','Zn','Br','Ag','I'];
+const ECHIPS=[['common','Common'],['alkali','Alkali'],['alkaline','Alkaline earth'],['trans','Transition'],['post','Post-transition'],['metalloid','Metalloids'],
+  ['nonmetal','Nonmetals'],['halogen','Halogens'],['noble','Noble gases'],['lanth','Lanthanides'],['actin','Actinides']];
+function makePicker(host,o){
+  const P={mode:'el',ecat:'common',icat:'All',page:0};
+  const icats=['All',...new Set(ION_LIST.map(i=>i.c))];
+  host.classList.add('picker');
+  host.innerHTML=`<div class="row" data-modes></div><div class="chips" data-chips></div><div class="pgrid" data-grid></div><div class="pager2" data-pager></div>`;
+  const modes=$('[data-modes]',host),chips=$('[data-chips]',host),grid=$('[data-grid]',host),pager=$('[data-pager]',host);
+  const id=o.id;
+  const list=()=>P.mode==='el'?(P.ecat==='common'?QUICK.map(s=>BYSYM[s]):EL.slice(1).filter(e=>e.c===P.ecat)):ION_LIST.filter(i=>P.icat==='All'||i.c===P.icat);
+  function draw(){
+    modes.innerHTML=o.ion?`<button class="btn grow" data-p="mode" data-v="el" data-k="${id}-me" aria-pressed="${P.mode==='el'}">Elements</button>
+      <button class="btn grow" data-p="mode" data-v="ion" data-k="${id}-mi" aria-pressed="${P.mode==='ion'}">Polyatomic ions</button>`:'<span class="lbl">Elements</span>';
+    chips.style.gridTemplateColumns=`repeat(${P.mode==='el'?6:4},1fr)`;
+    chips.innerHTML=P.mode==='el'
+      ?ECHIPS.map(([k,n])=>`<button class="btn" data-p="cat" data-v="${k}" data-k="${id}-c${k}" aria-pressed="${P.ecat===k}">${n}</button>`).join('')
+      :icats.map(k=>`<button class="btn" data-p="cat" data-v="${k}" data-k="${id}-c${k}" aria-pressed="${P.icat===k}">${k}</button>`).join('');
+    const cols=P.mode==='el'?5:4,rows=P.mode==='el'?4:3,size=cols*rows,all=list(),pages=Math.max(1,Math.ceil(all.length/size));
+    P.page=Math.min(P.page,pages-1);
+    const slice=all.slice(P.page*size,P.page*size+size);
+    grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;grid.style.gridTemplateRows=`repeat(${rows},minmax(3.4rem,1fr))`;
+    grid.innerHTML=slice.map(x=>P.mode==='el'
+      ?`<button class="btn ptile" style="--h:${CATS[x.c].h}" data-p="el" data-v="${x.z}" data-k="${id}-e${x.s}" aria-label="${x.n}, ${x.s}" ${o.sel&&o.sel()===x.z?'aria-pressed="true"':''}><b>${x.s}</b><small>${x.n}</small></button>`
+      :`<button class="btn ptile ion" data-p="ion" data-v="${x.f}" data-k="${id}-i${x.f}" aria-label="${x.n}, charge ${Math.abs(x.z)}${x.z>0?' plus':' minus'}"><span class="f">${ionHtml(x.f)}${chgHtml(Math.abs(x.z),x.z)}</span><small>${x.n}</small></button>`).join('')
+      +'<span></span>'.repeat(size-slice.length);
+    pager.innerHTML=`<button class="btn" data-p="prev" data-k="${id}-pv" ${P.page===0?'disabled':''}>◀ Previous</button><span>Page ${P.page+1} of ${pages}</span><button class="btn" data-p="next" data-k="${id}-nx" ${P.page>=pages-1?'disabled':''}>Next ▶</button>`;
+  }
+  host.addEventListener('click',e=>{
+    const b=e.target.closest('[data-p]');if(!b||b.disabled)return;
+    const k=b.dataset.p,v=b.dataset.v;
+    if(k==='mode'){P.mode=v;P.page=0;draw()}
+    else if(k==='cat'){if(P.mode==='el')P.ecat=v;else P.icat=v;P.page=0;draw()}
+    else if(k==='prev'){P.page--;draw()}
+    else if(k==='next'){P.page++;draw()}
+    else if(k==='el'){o.el(EL[+v]);if(o.sel)draw()}
+    else if(k==='ion')o.ion(IONS[v]);
+  });
+  P.redraw=draw;draw();return P;
+}
+
+/* ---------- FORMULA ---------- */
+const F={tokens:[],active:-1,sign:1,mag:0,brackets:false};
+function tokParts(t){
+  if(t.kind==='el')return{html:t.id+(t.n>1?`<sub>${t.n}</sub>`:''),text:t.id+(t.n>1?uSub(t.n):'')};
+  const fh=ionHtml(t.id),ft=uSub(t.id);
+  return t.n>1?{html:`(${fh})<sub>${t.n}</sub>`,text:`(${ft})${uSub(t.n)}`}:{html:fh,text:ft};
+}
+function formulaOut(){
+  let h='',t='';
+  F.tokens.forEach(k=>{const p=tokParts(k);h+=p.html;t+=p.text});
+  if(F.brackets&&h){h='['+h+']';t='['+t+']'}
+  return{html:h+chgHtml(F.mag,F.sign),text:t+chgTxt(F.mag,F.sign)};
+}
+const tokName=t=>t.kind==='el'?BYSYM[t.id].n:IONS[t.id].n;
+function renderFormula(){
+  const out=formulaOut();
+  $('#fDisplay').innerHTML=F.tokens.length?'<span>'+out.html+'</span>':'<span class="ph">Pick elements and ions on the right</span>';
+  $('#fTokens').innerHTML=F.tokens.map((t,i)=>
+    `<button class="btn tok" data-act="fSel" data-i="${i}" data-k="tk${i}" aria-pressed="${i===F.active}" aria-label="${tokName(t)}, subscript ${t.n}">${tokParts(t).html}</button>`).join('');
+  const a=F.tokens[F.active];
+  $('#subFor').textContent=a?tokName(a):'selected piece';
+  $$('#subPad [data-n]').forEach(b=>b.setAttribute('aria-pressed',String(!!a&&+b.dataset.n===a.n)));
+  $$('#chgRow [data-s]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.s===F.sign)));
+  $$('#chgRow [data-mag]').forEach(b=>{const m=+b.dataset.mag;b.textContent=m===0?'None':m+(F.sign>0?'+':'−');b.setAttribute('aria-pressed',String(m===F.mag))});
+  $('#bracketBtn').setAttribute('aria-pressed',String(F.brackets));
+  const only=F.tokens.length===1&&F.tokens[0].kind==='ion'&&F.tokens[0].n===1&&F.mag===0;
+  const ub=$('#useIon');ub.disabled=!only;
+  if(only){const z=IONS[F.tokens[0].id].z;ub.textContent=`Use the ion's charge (${Math.abs(z)}${z>0?'+':'−'})`}else ub.textContent="Use the ion's charge";
+}
+function addTok(kind,id){
+  F.tokens.push({kind,id,n:1});F.active=F.tokens.length-1;renderFormula();announce('Added '+(kind==='el'?BYSYM[id].n:IONS[id].n)+'. Formula is '+formulaOut().text);
+}
+function initFormula(){
+  $('#subPad').innerHTML=[1,2,3,4,5,6,7,8,9].map(n=>`<button class="btn" data-act="fSub" data-v="${n}" data-n="${n}" data-k="sub${n}" aria-pressed="false">${n}</button>`).join('')+
+    `<button class="btn" data-act="fStep" data-v="-1" data-k="subm" aria-label="Decrease subscript">−1</button><button class="btn" data-act="fStep" data-v="1" data-k="subp" aria-label="Increase subscript">+1</button>`;
+  $('#chgRow').innerHTML=`<button class="btn" data-act="fSign" data-s="1" data-v="1" data-k="sg1">+</button><button class="btn" data-act="fSign" data-s="-1" data-v="-1" data-k="sg2">−</button>`+
+    [0,1,2,3,4].map(m=>`<button class="btn" data-act="fMag" data-mag="${m}" data-v="${m}" data-k="mag${m}" aria-pressed="false">${m}</button>`).join('');
+  makePicker($('#fPick'),{id:'f',el:e=>addTok('el',e.s),ion:i=>addTok('ion',i.f)});
+  renderFormula();
+}
+
+/* ---------- DRAW ---------- */
+const C=90,COLS=8,ROWS=5;
+const D={atoms:{},bonds:[],charge:0,bracket:false,mode:'atom',sel:'O',pend:null,hist:[]};
+const MODES={
+  atom:['Place atom','Tap a square to place the chosen atom.'],
+  bond:['Bond','Tap two atoms. Repeat on the same pair for double, triple, then remove.'],
+  lp:['Lone pair','Tap an atom to add a lone pair. After four it resets.'],
+  chg:['Atom charge','Tap an atom to step its charge: +1, +2, −1, −2, none.'],
+  erase:['Erase','Tap an atom to remove it and its bonds.']
+};
+const snap=()=>JSON.stringify({atoms:D.atoms,bonds:D.bonds,charge:D.charge,bracket:D.bracket});
+function pushHist(){D.hist.push(snap());if(D.hist.length>60)D.hist.shift()}
+const cen=k=>{const[c,r]=k.split(',').map(Number);return[c*C+C/2,r*C+C/2]};
+function structSVG(P,edit){
+  let body='';const keys=Object.keys(D.atoms),dirs={};
+  D.bonds.forEach(b=>{
+    const[x1,y1]=cen(b.a),[x2,y2]=cen(b.b),dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,nx=-uy,ny=ux;
+    (dirs[b.a]=dirs[b.a]||[]).push(Math.atan2(dy,dx));(dirs[b.b]=dirs[b.b]||[]).push(Math.atan2(-dy,-dx));
+    ({1:[0],2:[-6,6],3:[-11,0,11]}[b.o]).forEach(o=>{
+      body+=`<line x1="${x1+ux*30+nx*o}" y1="${y1+uy*30+ny*o}" x2="${x2-ux*30+nx*o}" y2="${y2-uy*30+ny*o}" style="stroke:${P.ink};stroke-width:4;stroke-linecap:round"/>`;
+    });
+  });
+  const slots=[-Math.PI/2,0,Math.PI/2,Math.PI];
+  keys.forEach(k=>{
+    const a=D.atoms[k],[x,y]=cen(k);
+    body+=edit?`<circle cx="${x}" cy="${y}" r="27" style="fill:${P.bg};stroke:${P.mute};stroke-width:2"/>`:`<circle cx="${x}" cy="${y}" r="25" style="fill:${P.bg}"/>`;
+    body+=`<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" style="font:700 34px ${P.font};fill:${P.ink}">${a.sym}</text>`;
+    const ds=dirs[k]||[];
+    const score=s=>ds.reduce((m,d)=>Math.min(m,Math.abs(((d-s+Math.PI*3)%(Math.PI*2))-Math.PI)),9);
+    const order=slots.map((s,i)=>({s,i,sc:score(s)})).sort((p,q)=>q.sc-p.sc||p.i-q.i);
+    for(let i=0;i<a.lp;i++){
+      const s=order[i].s,dx=Math.cos(s),dy=Math.sin(s),px=-dy,py=dx;
+      [-6,6].forEach(o=>{body+=`<circle cx="${x+dx*38+px*o}" cy="${y+dy*38+py*o}" r="3.6" style="fill:${P.ink}"/>`});
+    }
+    if(a.fc)body+=`<text x="${x+24}" y="${y-22}" style="font:700 22px ${P.font};fill:${P.ink}">${(Math.abs(a.fc)>1?Math.abs(a.fc):'')+(a.fc>0?'+':'−')}</text>`;
+    if(edit&&D.pend===k)body+=`<circle cx="${x}" cy="${y}" r="36" style="fill:none;stroke:${P.sel};stroke-width:6"/>`;
+  });
+  let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+  keys.forEach(k=>{const[x,y]=cen(k);minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y)});
+  if(keys.length&&(D.bracket||D.charge)){
+    const x0=minx-52,x1=maxx+52,y0=miny-52,y1=maxy+52;
+    body+=`<path d="M${x0+16} ${y0}H${x0}V${y1}H${x0+16}M${x1-16} ${y0}H${x1}V${y1}H${x1-16}" style="fill:none;stroke:${P.ink};stroke-width:4"/>`;
+    if(D.charge)body+=`<text x="${x1+8}" y="${y0+8}" style="font:700 30px ${P.font};fill:${P.ink}">${Math.abs(D.charge)>1?Math.abs(D.charge):''}${D.charge>0?'+':'−'}</text>`;
+    minx=x0;maxx=x1+60;miny=y0-20;maxy=y1;
+  }else if(keys.length){minx-=45;maxx+=45;miny-=45;maxy+=45}
+  if(edit){
+    let hits='';
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const k=c+','+r,has=D.atoms[k];
+      if(!has)body+=`<circle cx="${c*C+C/2}" cy="${r*C+C/2}" r="3" style="fill:${P.mute}"/>`;
+      hits+=`<rect class="cellhit" data-cell="${k}" data-k="c${k}" x="${c*C+2}" y="${r*C+2}" width="${C-4}" height="${C-4}" rx="8" role="button" tabindex="0" aria-label="${has?'Atom '+has.sym:'Empty square'}, column ${c+1}, row ${r+1}"/>`;
+    }
+    return`<svg viewBox="0 0 ${C*COLS} ${C*ROWS}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Drawing grid" style="font-family:${P.font}">${body}${hits}</svg>`;
+  }
+  if(!keys.length){minx=0;miny=0;maxx=C*2;maxy=C}
+  const pad=20,vx=minx-pad,vy=miny-pad,w=maxx-minx+pad*2,h=maxy-miny+pad*2;
+  return{svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${w} ${h}" width="${w}" height="${h}"><rect x="${vx}" y="${vy}" width="${w}" height="${h}" fill="#fff"/>${body}</svg>`,w,h};
+}
+const PSCREEN={ink:'var(--ink)',bg:'var(--surface)',mute:'var(--line-strong)',sel:'var(--sel)',font:'var(--font)'};
+const PEXPORT={ink:'#000',bg:'#fff',mute:'#888',sel:'#f2b705',font:'Arial,Helvetica,sans-serif'};
+function describeStruct(){
+  const as=Object.values(D.atoms);if(!as.length)return'Empty drawing';
+  const bonds=D.bonds.map(b=>D.atoms[b.a].sym+['','-','=','≡'][b.o]+D.atoms[b.b].sym);
+  const lp=as.filter(a=>a.lp).map(a=>a.sym+' has '+a.lp+' lone pair'+(a.lp>1?'s':''));
+  return'Structure with atoms '+as.map(a=>a.sym).join(', ')+(bonds.length?'. Bonds: '+bonds.join(', '):'')+(lp.length?'. '+lp.join('; '):'')+(D.charge?'. Overall charge '+(D.charge>0?'+':'')+D.charge:'')+'.';
+}
+function renderDraw(){
+  $('#dBoard').innerHTML=structSVG(PSCREEN,true);
+  $('#dHint').textContent=D.pend?'First atom chosen. Tap the second atom.':MODES[D.mode][1];
+  $$('#dModes [data-m]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===D.mode)));
+  $$('#dAtoms [data-a]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.a===D.sel)));
+  $('#dChg').textContent=D.charge===0?'0':(D.charge>0?'+':'−')+Math.abs(D.charge);
+  $('#dBrk').setAttribute('aria-pressed',String(D.bracket));
+}
+const FCS=[0,1,2,-1,-2];
+function cellClick(k){
+  const a=D.atoms[k];
+  if(D.mode==='atom'){pushHist();D.atoms[k]={sym:D.sel,lp:a?a.lp:0,fc:a?a.fc:0}}
+  else if(D.mode==='bond'){
+    if(!a){say('Tap an atom');return}
+    if(!D.pend)D.pend=k;
+    else if(D.pend===k)D.pend=null;
+    else{
+      pushHist();
+      const i=D.bonds.findIndex(b=>(b.a===D.pend&&b.b===k)||(b.a===k&&b.b===D.pend));
+      if(i<0)D.bonds.push({a:D.pend,b:k,o:1});else if(D.bonds[i].o>=3)D.bonds.splice(i,1);else D.bonds[i].o++;
+      D.pend=null;
+    }
+  }
+  else if(D.mode==='lp'){if(!a){say('Tap an atom');return}pushHist();a.lp=(a.lp+1)%5}
+  else if(D.mode==='chg'){if(!a){say('Tap an atom');return}pushHist();a.fc=FCS[(FCS.indexOf(a.fc)+1)%FCS.length]}
+  else if(D.mode==='erase'){if(a){pushHist();delete D.atoms[k];D.bonds=D.bonds.filter(b=>b.a!==k&&b.b!==k);D.pend=null}}
+  renderDraw();
+  announce(D.atoms[k]?'Atom '+D.atoms[k].sym+' at column '+(+k.split(',')[0]+1)+', row '+(+k.split(',')[1]+1):'Square is empty');
+}
+async function structItem(){
+  const {svg,w,h}=structSVG(PEXPORT,false);
+  const img=new Image();
+  await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)});
+  const cv=document.createElement('canvas');cv.width=Math.round(w*2);cv.height=Math.round(h*2);
+  const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(img,0,0,cv.width,cv.height);
+  const scale=Math.min(1,360/w);
+  return{kind:'structure',img:cv.toDataURL('image/png'),w:w*scale,h:h*scale,alt:describeStruct()};
+}
+function initDraw(){
+  $('#dModes').innerHTML=Object.entries(MODES).map(([m,v])=>`<button class="btn" data-act="dMode" data-m="${m}" data-v="${m}" data-k="m-${m}" aria-pressed="false">${v[0]}</button>`).join('');
+  $('#dAtoms').innerHTML=['H','C','N','O','F','P','S','Cl','Br','I','B','Si'].map(a=>`<button class="btn tok" style="min-width:0" data-act="dAtom" data-a="${a}" data-v="${a}" data-k="a-${a}" aria-pressed="false">${a}</button>`).join('')+
+    `<button class="btn" style="grid-column:1/-1" data-act="dOtherBtn" data-k="a-other">Other element</button>`;
+  makePicker($('#dOtherPick'),{id:'d',el:e=>{D.sel=e.s;D.mode='atom';$('#dOther').hidden=true;renderDraw();say('Atom to place: '+e.n)}});
+  $('#dBoard').addEventListener('click',e=>{const r=e.target.closest('[data-cell]');if(r)cellClick(r.dataset.cell)});
+  $('#dBoard').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const r=e.target.closest('[data-cell]');if(r){e.preventDefault();cellClick(r.dataset.cell)}});
+  renderDraw();
+}
+
+/* ---------- NAME ---------- */
+const N={pieces:[],ide:false};
+const PRE=['mono','di','tri','tetra','penta','hexa','hepta','octa','nona','deca'];
+const ROM=['I','II','III','IV','V','VI','VII'];
+function sufWord(w,s){w=w.replace(/(ide|ate|ite)$/,'');if(/sulf$/.test(w))w+='ur';else if(/phosph$/.test(w))w+='or';return w+s}
+function buildName(ps){
+  let out='',glue=false,lastPre='';
+  for(const p of ps){
+    if(p.k==='pre'){out+=(out&&!glue?' ':'')+p.t;glue=true;lastPre=p.t}
+    else if(p.k==='suf'){out=out.replace(/(\S+)$/,w=>sufWord(w,p.t));glue=false}
+    else if(p.k==='roman'){out+=' ('+p.t+')';glue=false}
+    else{
+      if(glue){if((lastPre==='mono'||lastPre==='octa')&&/^[aeiou]/.test(p.t))out=out.slice(0,-1);out+=p.t}
+      else out+=(out?' ':'')+p.t;
+      glue=false;
+    }
+  }
+  return out?out[0].toUpperCase()+out.slice(1):'';
+}
+function renderName(){
+  const t=buildName(N.pieces);
+  $('#nOut').innerHTML=t?esc(t):'<span class="ph">Tap word parts, then element or ion names</span>';
+  $('#nIde').setAttribute('aria-pressed',String(N.ide));
+}
+const nameWord=e=>N.ide&&IDE[e.s]?IDE[e.s]:e.n.toLowerCase();
+function initName(){
+  $('#nPre').innerHTML=PRE.map(p=>`<button class="btn" data-act="nAdd1" data-kind="pre" data-t="${p}" data-k="np-${p}">${p}-</button>`).join('');
+  $('#nRom').innerHTML=ROM.map(r=>`<button class="btn" data-act="nAdd1" data-kind="roman" data-t="${r}" data-k="nr-${r}">${r}</button>`).join('');
+  $('#nAcid').innerHTML=`<button class="btn" data-act="nAdd1" data-kind="pre" data-t="hydro" data-k="nh">hydro-</button>
+    <button class="btn" data-act="nAdd1" data-kind="suf" data-t="ic" data-k="nic">-ic</button>
+    <button class="btn" data-act="nAdd1" data-kind="suf" data-t="ous" data-k="nous">-ous</button>
+    <button class="btn" data-act="nAdd1" data-kind="word" data-t="acid" data-k="nacid">acid</button>`;
+  makePicker($('#nPick'),{id:'n',el:e=>{N.pieces.push({k:'word',t:nameWord(e)});renderName();announce('Name is '+buildName(N.pieces))},ion:i=>{N.pieces.push({k:'word',t:i.n});renderName();announce('Name is '+buildName(N.pieces))}});
+  renderName();
+}
+
+
+/* ---------- MATH ---------- */
+const M={segs:[{type:'line',atoms:[]}],cur:{seg:0,part:'atoms'},sup:false,upage:0};
+const uSup2=s=>String(s).replace(/[\d−+]/g,c=>c==='−'?'⁻':c==='+'?'⁺':SUPS[c]);
+const runsHtml=rs=>rs.map(r=>r.m==='sup'?`<sup>${esc(r.s)}</sup>`:r.m==='sub'?`<sub>${esc(r.s)}</sub>`:esc(r.s)).join('');
+const runsText=rs=>rs.map(r=>r.m==='sup'?uSup2(r.s):r.m==='sub'?uSub(r.s):r.s).join('');
+function parseRuns(html){
+  const rs=[];html.replace(/<(sub|sup)>(.*?)<\/\1>|([^<]+)/g,(m,tag,inner,txt)=>{rs.push({s:(inner||txt).replace(/&amp;/g,'&'),m:tag||'n'});return''});return rs;
+}
+function needSpace(p,c){
+  if(!p)return false;
+  if(p.k==='op'||c.k==='op')return true;
+  if(['sup','close','punct','slash','pct'].includes(c.k))return false;
+  if(['open','slash','delta','neg'].includes(p.k))return false;
+  if(p.k==='punct')return true;
+  if(c.k==='num'&&p.k==='num')return false;
+  return true;
+}
+function joinAtoms(atoms){
+  const rs=[];let prev=null;
+  atoms.forEach(a=>{if(needSpace(prev,a))rs.push({s:' ',m:'n'});a.r.forEach(r=>rs.push({s:r.s,m:r.m||'n'}));prev=a});
+  return rs;
+}
+const MKEYS=[
+ ['7','n'],['8','n'],['9','n'],['+','op'],['−','op'],['×','op'],['÷','op'],
+ ['4','n'],['5','n'],['6','n'],['=','op'],['(','open'],[')','close'],['%','pct'],
+ ['1','n'],['2','n'],['3','n'],['.','n'],[',','punct'],['/','slash'],['−x','neg'],
+ ['0','n'],['×10ⁿ','sci'],['xⁿ','sup'],['Formula','formula'],['[','open'],[']','close'],['Δ','delta']
+];
+const MUNITS=['g','kg','mg','mol','L','mL','atm','kPa','mmHg','K','°C','J','kJ','cal','M','g/mol','mol/L','J/(g·°C)','g/mL','m','cm','nm','s','amu',
+  'ΔT','ΔH','pH','pOH','q','c','T','P','V','n','R','Ka'];
+function mTarget(){const sg=M.segs[M.cur.seg];return sg.type==='line'?sg.atoms:sg[M.cur.part]}
+function mPush(a){mTarget().push(a)}
+function applyKey(i,list,st){
+  const [lab,k]=MKEYS[i];
+  if(k==='sup'){st.sup=!st.sup;return}
+  if(k==='formula'){
+    if(!F.tokens.length){say('Build a formula on the Formula tab first');return}
+    list.push({k:'unit',r:parseRuns(formulaOut().html)});st.sup=false;return;
+  }
+  if(k==='sci'){list.push({k:'op',r:[{s:'×'}]});list.push({k:'num',r:[{s:'10'}]});st.sup=true;return}
+  if(st.sup){
+    if(k==='n'){list.push({k:'sup',r:[{s:lab,m:'sup'}]});return}
+    if(lab==='−'||k==='neg'){list.push({k:'sup',r:[{s:'−',m:'sup'}]});return}
+    st.sup=false;
+  }
+  list.push({k:k==='n'?'num':k,r:[{s:k==='neg'?'−':lab}]});
+}
+function mKey(i){applyKey(i,mTarget(),M);mRender()}
+function mRender(){
+  let h='';
+  const curCls=(i,p)=>M.cur.seg===i&&M.cur.part===p?' cur':'';
+  M.segs.forEach((sg,i)=>{
+    if(sg.type==='line'){
+      const empty=!sg.atoms.length;
+      if(empty&&M.cur.seg!==i)return;
+      h+=`<button class="mpart${curCls(i,'atoms')}" data-act="mCur" data-seg="${i}" data-part="atoms" data-k="mp${i}a">${empty?'<span class="mph">▢</span>':runsHtml(joinAtoms(sg.atoms))}</button>`;
+    }else{
+      const part=p=>`<button class="mpart${curCls(i,p)}" data-act="mCur" data-seg="${i}" data-part="${p}" data-k="mp${i}${p}">${sg[p].length?runsHtml(joinAtoms(sg[p])):'<span class="mph">▢</span>'}</button>`;
+      h+=`<span class="mfrac">${part('top')}<span class="mbar"></span>${part('bot')}</span>`;
+    }
+  });
+  $('#mDisplay').innerHTML=h;
+  const sg=M.segs[M.cur.seg];
+  $('#mHint').textContent=(M.sup?'Superscript is on. ':'')+(sg.type==='line'?'Typing on the main line.':M.cur.part==='top'?'Typing in the top of the fraction.':'Typing in the bottom of the fraction. Choose End fraction when finished.');
+  $$('#mPad [data-i]').forEach(b=>{if(MKEYS[+b.dataset.i][1]==='sup')b.setAttribute('aria-pressed',String(M.sup))});
+  drawUnits();
+}
+function drawUnits(){
+  const size=12,pages=Math.ceil(MUNITS.length/size);M.upage=Math.min(M.upage,pages-1);
+  const sl=MUNITS.slice(M.upage*size,M.upage*size+size);
+  $('#mUnits').innerHTML=`<span class="lbl">Units and symbols</span><div class="pgrid" style="grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,minmax(3.2rem,1fr))">`+
+    sl.map(u=>`<button class="btn" data-act="mUnit" data-v="${esc(u)}" data-k="mu-${esc(u)}">${esc(u)}</button>`).join('')+'<span></span>'.repeat(size-sl.length)+
+    `</div><div class="pager2"><button class="btn" data-act="mUPage" data-v="-1" data-k="mupp" ${M.upage===0?'disabled':''}>◀ Previous</button><span>Page ${M.upage+1} of ${pages}</span><button class="btn" data-act="mUPage" data-v="1" data-k="mupn" ${M.upage>=pages-1?'disabled':''}>Next ▶</button></div>`;
+}
+function mText(){
+  return M.segs.map(sg=>{
+    if(sg.type==='line')return runsText(joinAtoms(sg.atoms));
+    const t=runsText(joinAtoms(sg.top)),b=runsText(joinAtoms(sg.bot));
+    return b?`(${t})/(${b})`:t;
+  }).filter(Boolean).join(' ');
+}
+function mHasContent(){return M.segs.some(sg=>sg.type==='line'?sg.atoms.length:(sg.top.length||sg.bot.length))}
+function mathImage(){
+  const fs=36,font=n=>`${n}px Arial,Helvetica,sans-serif`;
+  const cv=document.createElement('canvas'),cx=cv.getContext('2d');
+  const wr=rs=>{let w=0;rs.forEach(r=>{cx.font=font(r.m==='n'?fs:fs*.62);w+=cx.measureText(r.s).width});return w};
+  const dr=(rs,x,y)=>{rs.forEach(r=>{cx.font=font(r.m==='n'?fs:fs*.62);const dy=r.m==='sup'?-fs*.38:r.m==='sub'?fs*.2:0;cx.fillText(r.s,x,y+dy);x+=cx.measureText(r.s).width})};
+  const parts=[];
+  M.segs.forEach(sg=>{
+    if(sg.type==='line'){if(sg.atoms.length){const rs=joinAtoms(sg.atoms);parts.push({t:'l',rs,w:wr(rs)})}}
+    else if(sg.top.length||sg.bot.length){const tr=joinAtoms(sg.top),br=joinAtoms(sg.bot),tw=wr(tr),bw=wr(br);parts.push({t:'f',tr,br,tw,bw,w:Math.max(tw,bw,fs*.6)+fs*.5})}
+  });
+  const gap=fs*.35,pad=14,total=parts.reduce((a,p)=>a+p.w,0)+gap*(parts.length-1)+pad*2;
+  const B=pad+fs*1.45,W=Math.ceil(total),H=Math.ceil(B+fs*.93+pad);
+  cv.width=W*2;cv.height=H*2;cx.scale(2,2);cx.fillStyle='#fff';cx.fillRect(0,0,W,H);cx.fillStyle='#000';cx.textBaseline='alphabetic';
+  let x=pad;
+  parts.forEach(p=>{
+    if(p.t==='l')dr(p.rs,x,B);
+    else{cx.fillRect(x+fs*.1,B-fs*.32-1.2,p.w-fs*.2,2.4);dr(p.tr,x+(p.w-p.tw)/2,B-fs*.6);dr(p.br,x+(p.w-p.bw)/2,B+fs*.68)}
+    x+=p.w+gap;
+  });
+  const sc=Math.min(1,420/W);
+  return{img:cv.toDataURL('image/png'),w:W*sc,h:H*sc};
+}
+function mReset(){M.segs=[{type:'line',atoms:[]}];M.cur={seg:0,part:'atoms'};M.sup=false;mRender()}
+function initData(){
+  $('#dPad').innerHTML=MKEYS.map(([l,k],i)=>`<button class="btn key${l==='Formula'?' small':''}" data-act="dKey" data-i="${i}" data-k="dk${i}" ${k==='sup'?'aria-pressed="false"':''} aria-label="${({sup:'Superscript on or off',sci:'Times ten to the power',formula:'Insert formula from the Formula tab',neg:'Negative sign',delta:'Delta'})[k]||l}">${l}</button>`).join('');
+  dRender();
+}
+function initMath(){
+  $('#mPad').innerHTML=MKEYS.map(([l,k],i)=>`<button class="btn key${l==='Formula'?' small':''}" data-act="mKey" data-i="${i}" data-k="mk${i}" ${k==='sup'?'aria-pressed="false"':''} aria-label="${({sup:'Superscript on or off',sci:'Times ten to the power',formula:'Insert formula from the Formula tab',neg:'Negative sign',delta:'Delta'})[k]||l}">${l}</button>`).join('');
+  mRender();
+}
+
+
+/* ---------- CALCULATOR ---------- */
+const CA={t:[],ans:0,res:null,sig:'full',eq:false};
+const CKEYS=[['C','clear'],['⌫','back'],['(','open'],[')','close'],['xʸ','pow'],['√','fn:√'],
+ ['7','n'],['8','n'],['9','n'],['÷','op'],['log','fn:log'],['ln','fn:ln'],
+ ['4','n'],['5','n'],['6','n'],['×','op'],['10ˣ','tenx'],['eˣ','ex'],
+ ['1','n'],['2','n'],['3','n'],['−','op'],['x²','sq'],['π','const'],
+ ['0','n'],['.','n'],['×10ⁿ','ee'],['+','op'],['(−)','neg'],['=','eq']];
+const CLAB={clear:'Clear',back:'Backspace',open:'Open parenthesis',close:'Close parenthesis',pow:'Raise to a power','fn:√':'Square root','fn:log':'Log base 10','fn:ln':'Natural log',
+  tenx:'Ten to the power',ex:'e to the power',sq:'Square',neg:'Negative sign',eq:'Equals',const:'Pi',op:null,n:null};
+function cNew(){if(CA.eq){CA.t=[];CA.res=null;CA.eq=false}}
+function cOp(){if(CA.eq){CA.t=[{k:'const',s:'Ans'}];CA.res=null;CA.eq=false}}
+function cAdd(tok){CA.t.push(tok)}
+function cKey(i){
+  const [lab,k]=CKEYS[i];
+  if(k==='clear'){CA.t=[];CA.res=null;CA.eq=false}
+  else if(k==='back'){if(CA.eq){CA.eq=false;CA.res=null}const l=CA.t[CA.t.length-1];if(l&&l.k==='num'&&l.s.length>1)l.s=l.s.slice(0,-1);else CA.t.pop()}
+  else if(k==='n'){cNew();const l=CA.t[CA.t.length-1];
+    if(lab==='.'){if(l&&l.k==='num'){if(!l.s.includes('.'))l.s+='.'}else cAdd({k:'num',s:'0.'})}
+    else if(l&&l.k==='num')l.s+=lab;else cAdd({k:'num',s:lab})}
+  else if(k==='op'){cOp();cAdd({k:'op',s:lab})}
+  else if(k==='pow'){cOp();cAdd({k:'pow'})}
+  else if(k==='sq'){cOp();cAdd({k:'pow'});cAdd({k:'num',s:'2'})}
+  else if(k==='tenx'){cNew();cAdd({k:'num',s:'10'});cAdd({k:'pow'})}
+  else if(k==='ex'){cNew();cAdd({k:'const',s:'e'});cAdd({k:'pow'})}
+  else if(k==='ee'){cOp();cAdd({k:'op',s:'×'});cAdd({k:'num',s:'10'});cAdd({k:'pow'})}
+  else if(k==='neg'){cNew();cAdd({k:'neg'})}
+  else if(k==='open'){cNew();cAdd({k:'open'})}
+  else if(k==='close'){cAdd({k:'close'})}
+  else if(k==='const'){cNew();cAdd({k:'const',s:'π'})}
+  else if(k.startsWith('fn:')){cNew();cAdd({k:'fn',s:k.slice(3)})}
+  else if(k==='eq'){cEq();return}
+  cRender();
+}
+function cEval(t){
+  let i=0;const pk=()=>t[i];
+  const isStart=x=>x&&(x.k==='num'||x.k==='open'||x.k==='fn'||x.k==='const'||x.k==='neg');
+  function expr(){let v=term();while(pk()&&pk().k==='op'&&(pk().s==='+'||pk().s==='−')){const o=t[i++].s,r=term();v=o==='+'?v+r:v-r}return v}
+  function term(){let v=pw();for(;;){const x=pk();if(!x)break;
+    if(x.k==='op'&&(x.s==='×'||x.s==='÷')){i++;const r=pw();v=x.s==='×'?v*r:v/r}
+    else if(isStart(x)&&x.k!=='neg'){v*=pw()}else break}return v}
+  function pw(){const b=un();if(pk()&&pk().k==='pow'){i++;return Math.pow(b,pw())}return b}
+  function un(){if(pk()&&pk().k==='neg'){i++;return -pw()}return pr()}
+  function pr(){const x=t[i++];if(!x)throw 0;
+    if(x.k==='num')return parseFloat(x.s);
+    if(x.k==='const')return x.s==='π'?Math.PI:x.s==='e'?Math.E:CA.ans;
+    if(x.k==='open'){const v=expr();if(pk()&&pk().k==='close')i++;return v}
+    if(x.k==='fn'){const v=expr();if(pk()&&pk().k==='close')i++;return x.s==='log'?Math.log10(v):x.s==='ln'?Math.log(v):Math.sqrt(v)}
+    throw 0}
+  const v=expr();if(i!==t.length)throw 0;return v;
+}
+function cFormat(v){
+  if(!isFinite(v)||isNaN(v))return null;
+  if(v===0)return{html:'0',plain:'0',speech:'0',mant:'0',exp:null};
+  const p=CA.sig==='full'?10:+CA.sig,a=Math.abs(v);
+  let str=v.toPrecision(p),sci=/e/.test(str)||a>=1e6||a<1e-3;
+  if(!sci){if(CA.sig==='full')str=String(parseFloat(str));return{html:str,plain:str,speech:str,mant:str,exp:null}}
+  let [m,e]=v.toExponential(p-1).split('e');
+  if(CA.sig==='full'&&m.includes('.'))m=m.replace(/0+$/,'').replace(/\.$/,'');
+  const ex=String(parseInt(e,10));
+  return{html:`${m} × 10<sup>${ex.replace('-','−')}</sup>`,plain:`${m} × 10${uSup2(ex.replace('-','−'))}`,speech:`${m} times 10 to the power ${ex.replace('-','negative ')}`,mant:m,exp:ex.replace('-','−')};
+}
+function cRuns(t){
+  const rs=[];let sup=false;
+  t.forEach(x=>{
+    if(x.k==='num'){rs.push({s:x.s,m:sup?'sup':'n'});return}
+    if(x.k==='neg'){rs.push({s:'−',m:sup?'sup':'n'});return}
+    sup=false;
+    if(x.k==='op')rs.push({s:' '+x.s+' ',m:'n'});
+    else if(x.k==='pow')sup=true;
+    else if(x.k==='open')rs.push({s:'(',m:'n'});
+    else if(x.k==='close')rs.push({s:')',m:'n'});
+    else if(x.k==='fn')rs.push({s:x.s+'(',m:'n'});
+    else if(x.k==='const')rs.push({s:x.s,m:'n'});
+  });
+  return rs;
+}
+function cEq(){
+  if(!CA.t.length){say('Enter a calculation first');return}
+  try{
+    const v=cEval(CA.t),f=cFormat(v);
+    if(!f)throw 0;
+    CA.ans=v;CA.res=f;CA.eq=true;cRender();announce('Result '+f.speech);
+  }catch(e){CA.res=null;CA.eq=false;$('#cRes').textContent='Error';announce('Error. Check the calculation.')}
+}
+function cRender(){
+  const ex=$('#cExpr');
+  ex.innerHTML=CA.t.length?runsHtml(cRuns(CA.t)):'<span class="ph" style="font-size:1.1rem;color:var(--muted)">Use the keypad</span>';
+  ex.scrollLeft=ex.scrollWidth;
+  $('#cRes').innerHTML=CA.res?'= '+CA.res.html:'';
+  $$('#cSig [data-sig]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.sig===CA.sig)));
+}
+function cInsert(withExpr){
+  if(!CA.res){say('Press equals first');return}
+  const rh=CA.res.html,rt=CA.res.plain;
+  if(withExpr){const er=cRuns(CA.t);addDoc({kind:'math',html:runsHtml(er)+' = '+rh,text:runsText(er)+' = '+rt})}
+  else addDoc({kind:'math',html:rh,text:rt});
+}
+function cToMath(){
+  if(!CA.res){say('Press equals first');return}
+  const r=CA.res,txt=r.mant;
+  [...txt].forEach(ch=>{if(ch==='-')mPush({k:'neg',r:[{s:'−'}]});else mPush({k:'num',r:[{s:ch}]})});
+  if(r.exp!==null){mPush({k:'op',r:[{s:'×'}]});mPush({k:'num',r:[{s:'10'}]});[...r.exp].forEach(ch=>mPush({k:'sup',r:[{s:ch,m:'sup'}]}))}
+  showTab('math');say('Result sent to the Math tab');
+}
+function initCalc(){
+  $('#cKeys').innerHTML=CKEYS.map(([l,k],i)=>`<button class="btn" data-act="cKeyBtn" data-i="${i}" data-k="ck${i}" ${CLAB[k]?`aria-label="${CLAB[k]}"`:''}>${l}</button>`).join('');
+  $('#cSig').innerHTML=[['full','Full'],['2','2'],['3','3'],['4','4'],['5','5']].map(([v,l])=>`<button class="btn" data-act="cSig" data-sig="${v}" data-k="sg${v}" aria-pressed="false">${l}</button>`).join('');
+  cRender();
+}
+
+
+/* ---------- helpers for pictures ---------- */
+async function svgToImg(svg,w,h,maxW){
+  const img=new Image();
+  await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)});
+  const cv=document.createElement('canvas');cv.width=Math.round(w*2);cv.height=Math.round(h*2);
+  const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(img,0,0,cv.width,cv.height);
+  const sc=Math.min(1,(maxW||360)/w);
+  return{img:cv.toDataURL('image/png'),w:w*sc,h:h*sc};
+}
+
+/* ---------- ATOMS ---------- */
+const uSub2=s=>String(s).replace(/[\d−+]/g,c=>c==='−'?'₋':c==='+'?'₊':SUBS[c]);
+const AM={mode:'iso'};
+function aSetMode(m){
+  AM.mode=m;
+  $$('#p-atom .amode').forEach(e=>e.hidden=e.dataset.m!==m);
+  $$('#aModes [data-m]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===m)));
+  if(m==='iso')iRender();if(m==='ec')eRender();if(m==='lw')lRender();
+}
+/* isotopes and nuclear equations */
+const I={tok:[],mass:'',atomic:'',sym:'',field:'mass',auto:true};
+const isoHtml=t=>`<span class="iso"><span class="isonum"><span>${esc(t.a||'')||'&nbsp;'}</span><span>${esc(t.z||'')||'&nbsp;'}</span></span><span>${esc(t.s)}</span></span>`;
+const isoText=t=>uSup(t.a||'')+uSub2(t.z||'')+t.s;
+const IPARTS=[['α','alpha','4','2','He'],['β⁻','beta','0','−1','e'],['β⁺','positron','0','+1','e'],['γ','gamma','0','0','γ'],['n','neutron','1','0','n'],['p','proton','1','1','p']];
+function iRender(){
+  $('#iDisplay').innerHTML=I.tok.length?'<span class="eq">'+I.tok.map(t=>t.k==='iso'?isoHtml(t):`<span>${esc(t.s)}</span>`).join('')+'</span>':'<span class="ph">Build the equation with the keys below</span>';
+  $('#iMass').textContent=I.mass||'▢';$('#iAtomic').textContent=I.atomic||'▢';
+  $('#iPrev').innerHTML=I.sym||I.mass||I.atomic?isoHtml({a:I.mass,z:I.atomic,s:I.sym||'▢'}):'<span class="ph" style="font-size:1rem">Preview</span>';
+  $$('[data-act="iField"]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===I.field)));
+  $('#iAuto').setAttribute('aria-pressed',String(I.auto));
+}
+function iKey(c){
+  const f=I.field;let v=I[f];
+  if(c==='⌫')v=v.slice(0,-1);
+  else if(c==='−'||c==='+'){if(f==='atomic')v=c+v.replace(/^[−+]/,'')}
+  else if(v.replace(/^[−+]/,'').length<3)v+=c;
+  I[f]=v;iRender();
+}
+function iClearFields(){I.mass='';I.atomic='';I.sym='';I.field='mass'}
+function eqText(){return I.tok.map(t=>t.k==='iso'?isoText(t):t.s).join(' ')}
+async function atomImage(){
+  const fs=38,font=n=>`${n}px Arial,Helvetica,sans-serif`;
+  const cv=document.createElement('canvas'),cx=cv.getContext('2d');
+  const w=(t,n)=>{cx.font=font(n);return cx.measureText(t).width};
+  const parts=I.tok.map(t=>{
+    if(t.k==='iso'){const nw=Math.max(w(t.a||'',fs*.55),w(t.z||'',fs*.55)),sw=w(t.s,fs);return{t,w:nw+3+sw,nw,sw}}
+    return{t,w:w(t.s,fs)};
+  });
+  const gap=fs*.35,pad=14,W=Math.ceil(parts.reduce((a,p)=>a+p.w,0)+gap*(parts.length-1)+pad*2),B=pad+fs*.95,H=Math.ceil(B+fs*.3+pad);
+  cv.width=W*2;cv.height=H*2;cx.scale(2,2);cx.fillStyle='#fff';cx.fillRect(0,0,W,H);cx.fillStyle='#000';cx.textBaseline='alphabetic';
+  let x=pad;
+  parts.forEach(p=>{
+    if(p.t.k==='iso'){
+      cx.font=font(fs*.55);cx.textAlign='right';
+      cx.fillText(p.t.a||'',x+p.nw,B-fs*.4);cx.fillText(p.t.z||'',x+p.nw,B+fs*.08);
+      cx.textAlign='left';cx.font=font(fs);cx.fillText(p.t.s,x+p.nw+3,B);
+    }else{cx.textAlign='left';cx.font=font(fs);cx.fillText(p.t.s,x,B)}
+    x+=p.w+gap;
+  });
+  const sc=Math.min(1,420/W);
+  return{img:cv.toDataURL('image/png'),w:W*sc,h:H*sc};
+}
+/* electron configurations */
+const E={sh:null,sub:null,tok:[]};
+const CAP={s:2,p:6,d:10,f:14};
+const subOk=(sh,sub)=>sh>=4||(sh===1?['s']:sh===2?['s','p']:['s','p','d']).includes(sub);
+const eHtml=t=>t.k==='gas'?`[${t.s}]`:`${t.sh}${t.sub}<sup>${t.n}</sup>`;
+const eText=t=>t.k==='gas'?`[${t.s}]`:`${t.sh}${t.sub}${uSup(t.n)}`;
+function eRender(){
+  $('#eDisplay').innerHTML=E.tok.length?'<span>'+E.tok.map(eHtml).join(' ')+'</span>':'<span class="ph">Build the configuration with the keys on the right</span>';
+  $$('#eShell [data-sh]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.sh===E.sh)));
+  $$('#eSub [data-sub]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.sub===E.sub));b.disabled=!!E.sh&&!subOk(E.sh,b.dataset.sub)});
+  $$('#eCnt [data-n]').forEach(b=>{b.disabled=!E.sh||!E.sub||+b.dataset.n>CAP[E.sub]});
+}
+/* Lewis dot symbols */
+const L={sym:'',d:{t:0,r:0,b:0,l:0},ch:0,brk:false};
+const SIDES=[['t','Top'],['l','Left'],['r','Right'],['b','Bottom']];
+function lRender(){
+  const dots=n=>n?'●'.repeat(n).split('').join(' '):'○';
+  const cell=(k,n)=>`<button class="btn" data-act="lwSide" data-v="${k}" data-k="lw${k}" aria-label="${SIDES.find(x=>x[0]===k)[1]} side, ${n} dot${n===1?'':'s'}. Tap to change." style="grid-area:${{t:'1/2',l:'2/1',r:'2/3',b:'3/2'}[k]}">${dots(n)}</button>`;
+  $('#lwGrid').innerHTML=cell('t',L.d.t)+cell('l',L.d.l)+`<div class="lwsym" style="grid-area:2/2">${esc(L.sym||'?')}</div>`+cell('r',L.d.r)+cell('b',L.d.b);
+  const total=L.d.t+L.d.r+L.d.b+L.d.l,br=L.brk||L.ch!==0;
+  $('#lwL').textContent=br?'[':'';$('#lwR').innerHTML=br?']'+(L.ch?`<sup style="font-size:.35em;vertical-align:top;position:relative;top:.4em">${Math.abs(L.ch)>1?Math.abs(L.ch):''}${L.ch>0?'+':'−'}</sup>`:''):'';
+  $('#lwInfo').textContent=L.sym?`Dots: ${total}`:'Pick an element on the right';
+  $('#lwChg').textContent=L.ch===0?'0':(L.ch>0?'+':'−')+Math.abs(L.ch);
+  $('#lwBrk').setAttribute('aria-pressed',String(br));
+}
+function lewisSVG(){
+  const sym=L.sym||'?',half=18*sym.length+6,cx=130,cy=130,br=L.brk||L.ch!==0;
+  let b=`<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" style="font:700 64px Arial,Helvetica,sans-serif;fill:#000">${esc(sym)}</text>`;
+  const d=(x,y)=>`<circle cx="${x}" cy="${y}" r="6" fill="#000"/>`,pos=[-11,11];
+  for(let i=0;i<L.d.t;i++)b+=d(cx+pos[i],cy-50);
+  for(let i=0;i<L.d.b;i++)b+=d(cx+pos[i],cy+50);
+  for(let i=0;i<L.d.l;i++)b+=d(cx-half-24,cy+pos[i]);
+  for(let i=0;i<L.d.r;i++)b+=d(cx+half+24,cy+pos[i]);
+  const ex=br?half+62:half+40;
+  if(br){
+    const x0=cx-ex,x1=cx+ex,y0=cy-80,y1=cy+80;
+    b+=`<path d="M${x0+16} ${y0}H${x0}V${y1}H${x0+16}M${x1-16} ${y0}H${x1}V${y1}H${x1-16}" fill="none" stroke="#000" stroke-width="4"/>`;
+    if(L.ch)b+=`<text x="${x1+8}" y="${y0+14}" style="font:700 34px Arial,Helvetica,sans-serif;fill:#000">${Math.abs(L.ch)>1?Math.abs(L.ch):''}${L.ch>0?'+':'−'}</text>`;
+  }
+  const x0=cx-ex-8,w=2*ex+16+(L.ch?44:0),y0=cy-92,h=184;
+  return{svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" width="${w}" height="${h}"><rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#fff"/>${b}</svg>`,w,h};
+}
+function initAtoms(){
+  $('#aModes').innerHTML=[['iso','Isotopes and nuclear'],['ec','Electron configuration'],['lw','Lewis dot symbol']].map(([m,l])=>`<button class="btn" data-act="aMode" data-m="${m}" data-v="${m}" data-k="am-${m}" aria-pressed="false">${l}</button>`).join('');
+  $('#iPart').innerHTML=IPARTS.map(([l,n],i)=>`<button class="btn" data-act="iPartAdd" data-i="${i}" data-k="ip${i}" aria-label="${n}"><span style="font-size:1.3rem">${l}</span><br><span style="font-size:.7rem;font-weight:400">${n}</span></button>`).join('');
+  $('#iSym').innerHTML=['+','→','(',')','α','β','γ'].map((c,i)=>`<button class="btn" data-act="iSymAdd" data-v="${c}" data-k="is${i}">${c}</button>`).join('');
+  $('#iPad').innerHTML=['1','2','3','4','5','6','7','8','9','0','−','+','⌫'].map((c,i)=>`<button class="btn" data-act="iKey" data-v="${c}" data-k="ik${i}" ${c==='⌫'?'aria-label="Delete last digit"':''}>${c}</button>`).join('');
+  makePicker($('#iPick'),{id:'i',el:e=>{I.sym=e.s;if(I.auto)I.atomic=String(e.z);iRender()}});
+  $('#eShell').innerHTML=[1,2,3,4,5,6,7].map(n=>`<button class="btn" data-act="eShell" data-sh="${n}" data-v="${n}" data-k="es${n}" aria-pressed="false">${n}</button>`).join('');
+  $('#eSub').innerHTML=['s','p','d','f'].map(n=>`<button class="btn" data-act="eSub" data-sub="${n}" data-v="${n}" data-k="eb${n}" aria-pressed="false">${n}</button>`).join('');
+  $('#eCnt').innerHTML=Array.from({length:14},(_,i)=>i+1).map(n=>`<button class="btn" data-act="eCnt" data-n="${n}" data-v="${n}" data-k="ec${n}">${n}</button>`).join('');
+  $('#eGas').innerHTML=['He','Ne','Ar','Kr','Xe','Rn'].map(g=>`<button class="btn" data-act="eGas" data-v="${g}" data-k="eg${g}">[${g}]</button>`).join('');
+  makePicker($('#lPick'),{id:'l',el:e=>{L.sym=e.s;lRender()}});
+  aSetMode('iso');
+}
+
+/* ---------- DATA TABLE ---------- */
+const DT={rows:4,cols:3,cells:{},sel:'0,0',header:true,sup:false,upage:0};
+const DHEAD=['Trial','Time (s)','Mass (g)','Volume (mL)','Temp (°C)','Moles (mol)','Pressure (atm)','Concentration (M)','Initial','Final','Change','Average'];
+const DITEMS=[...DHEAD,...MUNITS];
+const dAtoms=k=>(DT.cells[k]=DT.cells[k]||[]);
+function dRender(){
+  const g=$('#dGrid');g.style.gridTemplateColumns=`repeat(${DT.cols},minmax(6.5rem,1fr))`;
+  let h='';
+  for(let r=0;r<DT.rows;r++)for(let c=0;c<DT.cols;c++){
+    const k=r+','+c,rs=joinAtoms(DT.cells[k]||[]);
+    h+=`<button class="dcell${DT.header&&r===0?' hdr':''}" data-act="dSel" data-key="${k}" data-k="dc${k}" aria-pressed="${DT.sel===k}" aria-label="Row ${r+1}, column ${c+1}${DT.header&&r===0?', header':''}: ${esc(runsText(rs))||'empty'}">${runsHtml(rs)||'&nbsp;'}</button>`;
+  }
+  g.innerHTML=h;
+  $('#dHdr').setAttribute('aria-pressed',String(DT.header));
+  $$('#dPad [data-i]').forEach(b=>{if(MKEYS[+b.dataset.i][1]==='sup')b.setAttribute('aria-pressed',String(DT.sup))});
+  dUnitsDraw();
+}
+function dUnitsDraw(){
+  const size=12,pages=Math.ceil(DITEMS.length/size);DT.upage=Math.min(DT.upage,pages-1);
+  const sl=DITEMS.slice(DT.upage*size,DT.upage*size+size);
+  $('#dUnits').innerHTML=`<span class="lbl">Headings, units and symbols</span><div class="pgrid" style="grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,minmax(3.2rem,1fr))">`+
+    sl.map(u=>`<button class="btn" style="font-size:.95rem" data-act="dUnit" data-v="${esc(u)}" data-k="du-${esc(u)}">${esc(u)}</button>`).join('')+'<span></span>'.repeat(size-sl.length)+
+    `</div><div class="pager2"><button class="btn" data-act="dUPage" data-v="-1" data-k="dupp" ${DT.upage===0?'disabled':''}>◀ Previous</button><span>Page ${DT.upage+1} of ${pages}</span><button class="btn" data-act="dUPage" data-v="1" data-k="dupn" ${DT.upage>=pages-1?'disabled':''}>Next ▶</button></div>`;
+}
+function dTableOut(){
+  let scr='<table>',paste='<table style="border-collapse:collapse">',tsv=[];
+  for(let r=0;r<DT.rows;r++){
+    scr+='<tr>';paste+='<tr>';const row=[];
+    for(let c=0;c<DT.cols;c++){
+      const rs=joinAtoms(DT.cells[r+','+c]||[]),h=runsHtml(rs)||'&nbsp;',tag=DT.header&&r===0?'th':'td';
+      scr+=`<${tag}>${runsHtml(rs)||'<span class="sr">blank</span>'}</${tag}>`;paste+=`<${tag} style="border:1px solid #000;padding:4px 10px;text-align:center">${h}</${tag}>`;row.push(runsText(rs));
+    }
+    scr+='</tr>';paste+='</tr>';tsv.push(row.join('\t'));
+  }
+  return{html:scr+'</table>',paste:paste+'</table>',text:tsv.join('\n')};
+}
+
+/* ---------- WORDS ---------- */
+const WORDS=['ionic','covalent','metallic','bond','polar','nonpolar','electrons','shares','transfers','cation','anion','metal','nonmetal','molecule','compound',
+ 'is','are','has','forms','because','and','the','of','a','to','with','between','higher','lower','boiling point','melting point','electronegativity',
+ 'London dispersion','dipole-dipole','hydrogen bonding','linear','bent','tetrahedral','trigonal pyramidal','trigonal planar','solid','liquid','gas'];
+const SYMS=[['+',{}],['→',{}],['⇌',{}],['(',{glue:1}],[')',{tight:1}],[',',{tight:1}],['.',{tight:1}],['=',{}],['Δ',{}],['(s)',{tight:1}],['(l)',{tight:1}],['(g)',{tight:1}],['(aq)',{tight:1}],['°',{tight:1}]];
+let capNext=false;
+function addText(text,fl={}){
+  if(capNext&&/^[a-z]/.test(text)){text=text[0].toUpperCase()+text.slice(1);}
+  capNext=false;$('#wCap').setAttribute('aria-pressed','false');
+  addDoc({kind:'text',text,html:esc(text),tight:!!fl.tight,glue:!!fl.glue,digit:!!fl.digit});
+}
+function initWords(){
+  $('#wSym').innerHTML=SYMS.map(([s,f],i)=>`<button class="btn" data-act="wSymAdd" data-i="${i}" data-k="sy${i}">${s}</button>`).join('');
+  $('#wNum').innerHTML=[1,2,3,4,5,6,7,8,9,0].map(n=>`<button class="btn" data-act="wNumAdd" data-v="${n}" data-k="nu${n}">${n}</button>`).join('');
+  const host=$('#wBank');host.classList.add('picker');
+  let page=0;const cols=3,rows=6,size=cols*rows,pages=Math.ceil(WORDS.length/size);
+  function draw(){
+    const slice=WORDS.slice(page*size,page*size+size);
+    host.innerHTML=`<span class="lbl">Word bank</span><div class="pgrid" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},minmax(3.2rem,1fr))">`+
+      slice.map(w=>`<button class="btn" data-w="${esc(w)}" data-k="wb-${w}">${w}</button>`).join('')+'<span></span>'.repeat(size-slice.length)+
+      `</div><div class="pager2"><button class="btn" data-pg="-1" data-k="wbp" ${page===0?'disabled':''}>◀ Previous</button><span>Page ${page+1} of ${pages}</span><button class="btn" data-pg="1" data-k="wbn" ${page>=pages-1?'disabled':''}>Next ▶</button></div>`;
+  }
+  host.addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b||b.disabled)return;
+    if(b.dataset.pg){page+=+b.dataset.pg;draw()}else if(b.dataset.w)addText(b.dataset.w);
+  });
+  draw();
+}
+
+/* ---------- TABLE ---------- */
+const T={view:'table',sel:null,fam:null};
+function detailFacts(e){
+  const main=e.col<=2||e.col>=13,val=main&&e.r<=7?(e.s==='He'?2:e.col<=2?e.col:e.col-10):null;
+  return `<dl><dt>Name</dt><dd>${e.n}</dd><dt>Number</dt><dd>${e.z}</dd><dt>Mass</dt><dd>${e.m}</dd>
+    <dt>Family</dt><dd>${CATS[e.c].n}</dd><dt>Electroneg.</dt><dd>${e.en||'none'}</dd><dt>Valence e⁻</dt><dd>${val!==null?val:'varies'}</dd>
+    <dt>Charge</dt><dd>${CH[e.s]||'varies'}</dd><dt>Group / period</dt><dd>${e.r>=9?'f-block':e.col} / ${e.per}</dd></dl>`;
+}
+function detailHtml(cls){
+  if(!T.sel)return`<div class="${cls}"><p class="note">Select an element to see its details.</p></div>`;
+  const e=EL[T.sel];
+  return`<div class="${cls}"><div class="big">${e.s}</div>${detailFacts(e)}
+   <div class="acts"><button class="btn primary" data-act="tToFormula" data-k="tf">Add to formula</button><button class="btn primary" data-act="tToName" data-k="tn">Add name to document</button></div></div>`;
+}
+function renderTable(){
+  $$('[data-act="tView"]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===T.view)));
+  const host=$('#tHost');
+  if(T.view==='table'){
+    host.innerHTML=`<div class="fulltable" id="ft">`+EL.slice(1).map(e=>
+      `<button class="cell" style="--h:${CATS[e.c].h};grid-row:${e.r};grid-column:${e.col}" data-z="${e.z}" data-k="z${e.z}" aria-label="${e.n}, symbol ${e.s}, atomic number ${e.z}" aria-pressed="${T.sel===e.z}"><span class="zn">${e.z}</span><span class="sy">${e.s}</span></button>`).join('')+
+      `<div class="ghost" style="grid-row:6;grid-column:3">57-71</div><div class="ghost" style="grid-row:7;grid-column:3">89-103</div>`+detailHtml('detail')+`</div>`;
+    $('#ft').onclick=ev=>{const b=ev.target.closest('[data-z]');if(b){T.sel=+b.dataset.z;renderTable()}};
+  }else{
+    host.innerHTML=`<div class="tool" style="flex:1;grid-template-columns:minmax(0,6fr) minmax(0,4fr)"><div class="card" id="tFam"></div><div class="card" id="tFamDet"></div></div>`;
+    const P=makePicker($('#tFam'),{id:'t',sel:()=>T.sel,el:e=>{T.sel=e.z;$('#tFamDet').innerHTML=detailHtml('detailcard')}});
+    $('#tFamDet').innerHTML=detailHtml('detailcard');
+  }
+}
+
+
+/* ---------- passcode ---------- */
+const locked=()=>!!S.pass&&!UNL;
+function renderTeacher(){
+  const b=$('#teacherBox');if(!b)return;
+  if(locked()){
+    b.innerHTML='<span class="lbl">Teacher controls (locked)</span><p class="note">The calculator and passcode settings need the passcode.</p><button class="btn" data-act="unlock" data-k="unl">Enter passcode</button>';
+    return;
+  }
+  b.innerHTML=`<span class="lbl">Teacher controls</span>
+   <div class="sgroup"><span class="lbl">Calculator</span><button class="btn" data-act="set" data-k="calc" data-v="0">Off</button><button class="btn" data-act="set" data-k="calc" data-v="1">On</button></div>
+   <div class="sgroup"><span class="lbl">Passcode</span>${S.pass
+     ?'<button class="btn" data-act="newPass" data-k="np">Change passcode</button><button class="btn" data-act="removePass" data-k="rp">Remove passcode</button><button class="btn" data-act="lockNow" data-k="ln">Lock now</button>'
+     :'<button class="btn" data-act="newPass" data-k="np">Set a passcode</button>'}</div>
+   ${S.pass?'<div class="sgroup"><span class="lbl">Protect</span><button class="btn" data-act="set" data-k="lockScope" data-v="teacher">Teacher controls only</button><button class="btn" data-act="set" data-k="lockScope" data-v="all">All settings</button></div>':''}`;
+  $$('#teacherBox [data-act="set"]').forEach(x=>x.setAttribute('aria-pressed',String(S[x.dataset.k]===x.dataset.v)));
+}
+async function hashCode(c,salt){
+  try{const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(salt+':'+c));return[...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+  catch(e){return'p:'+salt+c}
+}
+const LK={mode:'enter',buf:'',first:'',cb:null};
+function lockRender(){
+  $('#lockTitle').textContent={enter:'Enter passcode',new:'Choose a 4 digit passcode',confirm:'Enter it again to confirm'}[LK.mode];
+  $('#lockDots').textContent='●'.repeat(LK.buf.length)+'○'.repeat(4-LK.buf.length);
+}
+function openLock(mode,cb){LK.mode=mode;LK.buf='';LK.first='';LK.cb=cb||null;$('#lockMsg').textContent='';lockRender();$('#lock').hidden=false;const f=$('#lockPad button');if(f&&kbd)f.focus()}
+function closeLock(){$('#lock').hidden=true;LK.buf=''}
+async function lockDigit(d){
+  if(LK.buf.length>=4)return;
+  LK.buf+=d;lockRender();
+  if(LK.buf.length<4)return;
+  const code=LK.buf;
+  if(LK.mode==='enter'){
+    if(await hashCode(code,S.pass.salt)===S.pass.h){UNL=true;const cb=LK.cb;closeLock();applySettings();if(cb)cb();announce('Unlocked')}
+    else{LK.buf='';$('#lockMsg').textContent='Incorrect passcode. Try again.';lockRender();announce('Incorrect passcode')}
+  }else if(LK.mode==='new'){LK.first=code;LK.buf='';LK.mode='confirm';$('#lockMsg').textContent='';lockRender()}
+  else{
+    if(code===LK.first){
+      const salt=Math.random().toString(36).slice(2);
+      S.pass={salt,h:await hashCode(code,salt)};UNL=true;closeLock();applySettings();say('Passcode set')
+    }else{LK.mode='new';LK.buf='';LK.first='';$('#lockMsg').textContent='The two entries did not match. Start again.';lockRender()}
+  }
+}
+function initLock(){
+  $('#lockPad').innerHTML=[1,2,3,4,5,6,7,8,9].map(n=>`<button class="btn" style="min-height:4rem;font-size:1.5rem" data-act="lockKey" data-v="${n}" data-k="lk${n}">${n}</button>`).join('')+
+    `<button class="btn" style="min-height:4rem" data-act="lockCancel" data-k="lkc">Cancel</button><button class="btn" style="min-height:4rem;font-size:1.5rem" data-act="lockKey" data-v="0" data-k="lk0">0</button><button class="btn" style="min-height:4rem" data-act="lockBack" data-k="lkb" aria-label="Delete last digit">⌫</button>`;
+}
+
+/* ---------- tabs ---------- */
+const TABS=['formula','draw','name','math','calc','atom','data','words','table','doc'];
+function showTab(t){
+  if(t==='calc'&&S.calc!=='1')t='formula';
+  curTab=t;
+  TABS.forEach(x=>{$('#p-'+x).hidden=x!==t});
+  $$('.tabs .btn').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.v===t)));
+  $('#docstrip').hidden=t==='doc';
+  if(t==='table')renderTable();
+  if(t==='math')mRender();
+  if(t==='calc')cRender();
+  if(t==='atom')aSetMode(AM.mode);
+  if(t==='data')dRender();
+  if(t==='doc')renderDocs();
+}
+
+/* ---------- actions ---------- */
+const A={
+  tab:b=>showTab(b.dataset.v),
+  toggleSettings:()=>{
+    const s=$('#settings');
+    const flip=()=>{s.hidden=!s.hidden;$('[data-act="toggleSettings"]').setAttribute('aria-expanded',String(!s.hidden))};
+    if(s.hidden&&S.pass&&S.lockScope==='all'&&!UNL){openLock('enter',flip);return}
+    flip();
+  },
+  unlock:()=>openLock('enter',()=>renderTeacher()),
+  newPass:()=>openLock('new'),
+  removePass:()=>{S.pass=null;UNL=false;applySettings();say('Passcode removed')},
+  lockNow:()=>{UNL=false;$('#settings').hidden=true;$('[data-act="toggleSettings"]').setAttribute('aria-expanded','false');applySettings();say('Locked')},
+  lockKey:b=>lockDigit(b.dataset.v),
+  lockBack:()=>{LK.buf=LK.buf.slice(0,-1);lockRender()},
+  lockCancel:()=>{closeLock()},
+  set:b=>{if((b.dataset.k==='calc'||b.dataset.k==='lockScope')&&locked()){say('Unlock teacher controls first');return}S[b.dataset.k]=b.dataset.v;applySettings()},
+  closeFallback:()=>{$('#fallbackBox').hidden=true},
+  // document
+  docCopy:copyDoc,
+  docBreak:()=>{if(DOC.length&&DOC[DOC.length-1].kind==='break'){say('Already on a new line');return}DOC.push({kind:'break'});saveDoc();renderDocs()},
+  docUndo:()=>{DOC.pop();docSel=-1;saveDoc();renderDocs()},
+  docClear:b=>twoStep(b,'docclear','Clear all',()=>{DOC=[];docSel=-1;saveDoc();renderDocs();say('Document cleared')}),
+  docSel:b=>{docSel=docSel===+b.dataset.i?-1:+b.dataset.i;renderDocs()},
+  docDelSel:()=>{if(docSel<0){say('Select an item first');return}DOC.splice(docSel,1);docSel=-1;saveDoc();renderDocs()},
+  // formula
+  fSel:b=>{F.active=+b.dataset.i;renderFormula()},
+  fSub:b=>{const t=F.tokens[F.active];if(!t){say('Pick an element or ion first');return}t.n=+b.dataset.v;renderFormula()},
+  fStep:b=>{const t=F.tokens[F.active];if(!t){say('Pick an element or ion first');return}t.n=Math.max(1,Math.min(20,t.n+ +b.dataset.v));renderFormula()},
+  fSign:b=>{F.sign=+b.dataset.v;renderFormula()},
+  fMag:b=>{F.mag=+b.dataset.v;renderFormula()},
+  fBrackets:()=>{F.brackets=!F.brackets;renderFormula()},
+  fUseIon:()=>{const z=IONS[F.tokens[0].id].z;F.sign=z>0?1:-1;F.mag=Math.abs(z);F.brackets=true;renderFormula()},
+  fUndo:()=>{F.tokens.pop();F.active=F.tokens.length-1;renderFormula()},
+  fClear:()=>{F.tokens=[];F.active=-1;F.mag=0;F.brackets=false;renderFormula()},
+  fInsert:()=>{if(!F.tokens.length){say('Build a formula first');return}const o=formulaOut();addDoc({kind:'formula',html:o.html,text:o.text});A.fClear()},
+  // draw
+  dMode:b=>{D.mode=b.dataset.v;D.pend=null;renderDraw()},
+  dAtom:b=>{D.sel=b.dataset.v;D.mode='atom';renderDraw()},
+  dOtherBtn:()=>{$('#dOther').hidden=false},
+  dOtherClose:()=>{$('#dOther').hidden=true},
+  dChg:b=>{pushHist();D.charge=Math.max(-4,Math.min(4,D.charge+ +b.dataset.v));if(D.charge)D.bracket=true;renderDraw()},
+  dBrk:()=>{pushHist();D.bracket=!D.bracket;renderDraw()},
+  dUndo:()=>{const h=D.hist.pop();if(!h){say('Nothing to undo');return}Object.assign(D,JSON.parse(h),{pend:null});renderDraw()},
+  dClear:()=>{pushHist();D.atoms={};D.bonds=[];D.charge=0;D.bracket=false;D.pend=null;renderDraw()},
+  dInsert:async()=>{
+    if(!Object.keys(D.atoms).length){say('Draw something first');return}
+    try{addDoc(await structItem());pushHist();D.atoms={};D.bonds=[];D.charge=0;D.bracket=false;D.pend=null;renderDraw()}catch(e){say('Could not make the picture')}
+  },
+  // name
+  nAdd1:b=>{N.pieces.push({k:b.dataset.kind,t:b.dataset.t});renderName()},
+  nUndo:()=>{N.pieces.pop();renderName()},
+  nClear:()=>{N.pieces=[];renderName()},
+  nIde:()=>{N.ide=!N.ide;renderName()},
+  nInsert:()=>{const t=buildName(N.pieces);if(!t){say('Build a name first');return}addDoc({kind:'name',html:esc(t),text:t});N.pieces=[];renderName()},
+  // calculator
+  cKeyBtn:b=>cKey(+b.dataset.i),
+  cEq:()=>cEq(),
+  cAns:()=>{cNew();CA.t.push({k:'const',s:'Ans'});cRender()},
+  cSig:b=>{CA.sig=b.dataset.sig;if(CA.eq){try{CA.res=cFormat(CA.ans)}catch(e){}}cRender()},
+  cInsCalc:()=>cInsert(true),
+  cInsRes:()=>cInsert(false),
+  cToMath:()=>cToMath(),
+  // settings extras
+  stopSpeech:()=>{try{speechSynthesis.cancel()}catch(e){}},
+  openAbout:()=>{$('#about').hidden=false;$('#settings').hidden=true},
+  closeAbout:()=>{$('#about').hidden=true},
+  docRead:()=>{if(!DOC.length){say('Nothing to read yet');return}speak(docText(),true)},
+  // atoms
+  aMode:b=>aSetMode(b.dataset.v),
+  iField:b=>{I.field=b.dataset.v;iRender()},
+  iAuto:()=>{I.auto=!I.auto;iRender()},
+  iKey:b=>iKey(b.dataset.v),
+  iAdd:()=>{if(!I.sym){say('Pick an element on the right first');return}I.tok.push({k:'iso',a:I.mass,z:I.atomic,s:I.sym});iClearFields();iRender();announce('Added isotope. Equation is '+eqText())},
+  iPartAdd:b=>{const p=IPARTS[+b.dataset.i];I.tok.push({k:'iso',a:p[2],z:p[3],s:p[4]});iRender();announce('Added '+p[1])},
+  iSymAdd:b=>{I.tok.push({k:'txt',s:b.dataset.v});iRender()},
+  iUndo:()=>{I.tok.pop();iRender()},
+  iClear:()=>{I.tok=[];iClearFields();iRender()},
+  iInsert:async()=>{
+    if(!I.tok.length){say('Build an equation first');return}
+    try{const im=await atomImage();addDoc({kind:'atom',img:im.img,w:im.w,h:im.h,alt:'Nuclear notation: '+eqText(),text:eqText()});I.tok=[];iRender()}catch(e){say('Could not make the picture')}
+  },
+  eShell:b=>{E.sh=+b.dataset.v;if(E.sub&&!subOk(E.sh,E.sub))E.sub=null;eRender()},
+  eSub:b=>{E.sub=b.dataset.v;eRender()},
+  eCnt:b=>{if(!E.sh||!E.sub)return;E.tok.push({k:'orb',sh:E.sh,sub:E.sub,n:+b.dataset.v});eRender();announce('Added '+E.sh+E.sub+' '+b.dataset.v)},
+  eGas:b=>{E.tok.push({k:'gas',s:b.dataset.v});eRender()},
+  eUndo:()=>{E.tok.pop();eRender()},
+  eClear:()=>{E.tok=[];E.sh=null;E.sub=null;eRender()},
+  eInsert:()=>{if(!E.tok.length){say('Build a configuration first');return}addDoc({kind:'config',html:E.tok.map(eHtml).join(' '),text:E.tok.map(eText).join(' ')});E.tok=[];eRender()},
+  lwSide:b=>{const k=b.dataset.v;L.d[k]=(L.d[k]+1)%3;lRender();announce(k+' side has '+L.d[k]+' dots')},
+  lwChg:b=>{L.ch=Math.max(-4,Math.min(4,L.ch+ +b.dataset.v));lRender()},
+  lwBrk:()=>{L.brk=!L.brk;lRender()},
+  lwClear:()=>{L.sym='';L.d={t:0,r:0,b:0,l:0};L.ch=0;L.brk=false;lRender()},
+  lwInsert:async()=>{
+    if(!L.sym){say('Pick an element first');return}
+    const {svg,w,h}=lewisSVG(),total=L.d.t+L.d.r+L.d.b+L.d.l;
+    try{const im=await svgToImg(svg,w,h,200);addDoc({kind:'lewis',img:im.img,w:im.w,h:im.h,alt:`Lewis dot symbol for ${L.sym} with ${total} dot${total===1?'':'s'}${L.ch?', charge '+(L.ch>0?'+':'')+L.ch:''}`,text:L.sym});A.lwClear()}catch(e){say('Could not make the picture')}
+  },
+  // data
+  dSel:b=>{DT.sel=b.dataset.key;DT.sup=false;dRender()},
+  dRow:b=>{DT.rows=Math.max(1,Math.min(12,DT.rows+ +b.dataset.v));dRender()},
+  dCol:b=>{DT.cols=Math.max(1,Math.min(6,DT.cols+ +b.dataset.v));const [r,c]=DT.sel.split(',').map(Number);if(c>=DT.cols)DT.sel=r+','+(DT.cols-1);dRender()},
+  dHdr:()=>{DT.header=!DT.header;dRender()},
+  dKey:b=>{applyKey(+b.dataset.i,dAtoms(DT.sel),DT);dRender()},
+  dUnit:b=>{dAtoms(DT.sel).push({k:'unit',r:[{s:b.dataset.v}]});DT.sup=false;dRender()},
+  dUPage:b=>{DT.upage+=+b.dataset.v;dUnitsDraw()},
+  dAddText:()=>{const v=$('#dText').value.trim();if(!v){say('Type something first');return}dAtoms(DT.sel).push({k:'unit',r:[{s:v}]});$('#dText').value='';dRender()},
+  dCellUndo:()=>{dAtoms(DT.sel).pop();dRender()},
+  dCellClear:()=>{DT.cells[DT.sel]=[];dRender()},
+  dNext:()=>{let [r,c]=DT.sel.split(',').map(Number);c++;if(c>=DT.cols){c=0;r++}if(r>=DT.rows){r=0}DT.sel=r+','+c;DT.sup=false;dRender()},
+  dReset:()=>{DT.cells={};DT.sel='0,0';DT.sup=false;dRender()},
+  tbInsert:()=>{
+    if(!Object.values(DT.cells).some(a=>a.length)){say('Fill in the table first');return}
+    const o=dTableOut();addDoc({kind:'table',html:o.html,paste:o.paste,text:o.text,alt:'Data table'});A.dReset();
+  },
+  // math
+  mKey:b=>mKey(+b.dataset.i),
+  mUnit:b=>{mPush({k:'unit',r:[{s:b.dataset.v}]});M.sup=false;mRender()},
+  mUPage:b=>{M.upage+=+b.dataset.v;drawUnits()},
+  mCur:b=>{M.cur={seg:+b.dataset.seg,part:b.dataset.part};mRender()},
+  mClear:()=>mReset(),
+  mFracStart:()=>{M.segs.push({type:'frac',top:[],bot:[]});M.cur={seg:M.segs.length-1,part:'top'};M.sup=false;mRender()},
+  mFracBot:()=>{if(M.segs[M.cur.seg].type!=='frac'){say('Start a fraction first');return}M.cur.part='bot';M.sup=false;mRender()},
+  mFracEnd:()=>{
+    if(M.segs[M.cur.seg].type!=='frac'){say('You are not inside a fraction');return}
+    if(!M.segs[M.cur.seg+1])M.segs.push({type:'line',atoms:[]});
+    M.cur={seg:M.cur.seg+1,part:'atoms'};M.sup=false;mRender();
+  },
+  mUndo:()=>{
+    const sg=M.segs[M.cur.seg],list=mTarget();
+    if(list.length){list.pop();mRender();return}
+    if(sg.type==='frac'){
+      if(M.cur.part==='bot'){M.cur.part='top'}
+      else{M.segs.splice(M.cur.seg,1);M.cur={seg:Math.max(0,M.cur.seg-1),part:'atoms'};const p=M.segs[M.cur.seg];if(p.type==='frac')M.cur.part='bot'}
+    }else if(M.segs.length>1){
+      M.segs.splice(M.cur.seg,1);const i=M.cur.seg-1;const p=M.segs[i];M.cur=p.type==='frac'?{seg:i,part:'bot'}:{seg:i,part:'atoms'};
+    }
+    mRender();
+  },
+  mInsert:()=>{
+    if(!mHasContent()){say('Write something first');return}
+    const hasFrac=M.segs.some(sg=>sg.type==='frac'&&(sg.top.length||sg.bot.length));
+    const text=mText();
+    if(hasFrac){const im=mathImage();addDoc({kind:'math',img:im.img,w:im.w,h:im.h,alt:text,text})}
+    else{const rs=joinAtoms(M.segs.find(sg=>sg.type==='line'&&sg.atoms.length).atoms);addDoc({kind:'math',html:runsHtml(rs),text})}
+    mReset();
+  },
+  // words
+  wInsert:()=>{const v=$('#wText').value.trim();if(!v){say('Type something first');return}addText(v);$('#wText').value=''},
+  wInsertNl:()=>{const v=$('#wText').value.trim();if(v){addText(v);$('#wText').value=''}A.docBreak()},
+  wSymAdd:b=>{const [s,f]=SYMS[+b.dataset.i];addText(s,f)},
+  wNumAdd:b=>addText(b.dataset.v,{digit:true}),
+  wCap:b=>{capNext=!capNext;b.setAttribute('aria-pressed',String(capNext))},
+  // table
+  tView:b=>{T.view=b.dataset.v;renderTable()},
+  tToFormula:()=>{if(!T.sel)return;addTok('el',EL[T.sel].s);say('Added '+EL[T.sel].n+' to the formula')},
+  tToName:()=>{if(!T.sel)return;addText(EL[T.sel].n)}
+};
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');
+  if(b&&A[b.dataset.act]){
+    if(b.dataset.act==='docClear'){b.dataset.confirm='docclear';b.dataset.orig=b.dataset.orig||b.textContent}
+    A[b.dataset.act](b);
+  }
+});
+$$('#docClearMini,#docClearBig').forEach(b=>{b.dataset.confirm='docclear';b.dataset.orig='Clear all'});
+
+/* ---------- keyboard focus restore ---------- */
+let kbd=false;
+document.addEventListener('keydown',()=>{kbd=true},true);
+document.addEventListener('pointerdown',()=>{kbd=false},true);
+document.addEventListener('click',e=>{
+  if(!kbd)return;
+  const t=e.target.closest('[data-k],[data-cell]');if(!t)return;
+  const key=t.dataset.k,cell=t.dataset.cell;
+  setTimeout(()=>{
+    const a=document.activeElement;
+    if(a&&a!==document.body&&a.isConnected)return;
+    const n=cell?document.querySelector('[data-cell="'+cell+'"]'):document.querySelector('[data-k="'+key+'"]');
+    if(n&&!n.disabled)n.focus();
+  },0);
+});
+
+/* ---------- dwell click ---------- */
+const dw={el:null,t:null,lock:null};
+const keyOf=el=>el.dataset.k||el.id||((el.dataset.act||'')+':'+(el.dataset.v||''))||'x';
+function stopDwell(){if(dw.t)clearTimeout(dw.t);if(dw.el)dw.el.classList.remove('dwelling');dw.el=null;dw.t=null}
+document.addEventListener('pointerover',e=>{
+  if(S.dwell!=='1'||e.pointerType==='touch')return;
+  const el=e.target.closest('button,.cellhit'),key=el?keyOf(el):null;
+  if(key!==dw.lock)dw.lock=null;
+  if(el&&el===dw.el)return;
+  stopDwell();
+  if(!el||el.disabled||key===dw.lock)return;
+  dw.el=el;el.classList.add('dwelling');
+  dw.t=setTimeout(()=>{const x=dw.el;stopDwell();if(!x||!x.isConnected)return;dw.lock=keyOf(x);x.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}))},+S.dwellMs);
+});
+document.addEventListener('pointerdown',stopDwell);
+
+/* ---------- boot ---------- */
+applySettings();
+initLock();initFormula();initDraw();initName();initMath();initCalc();initAtoms();initData();initWords();renderDocs();
+showTab('formula');
+})();
+</script>
+</body>
+</html>
